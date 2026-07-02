@@ -3,334 +3,1628 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Live Teen Patti Companion</title>
-    <!-- Include Ably Realtime SDK for syncing moves instantly across phones -->
+    <title>Teen Patti Companion Deluxe</title>
     <script src="https://cdn.ably.com/lib/ably.min-1.js"></script>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 15px; }
-        .container { max-width: 500px; margin: 0 auto; }
-        .card { background: #1e293b; padding: 20px; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border: 1px solid #334155; }
-        h1, h2, h3 { margin-top: 0; color: #fbbf24; text-align: center; }
-        .pot-display { font-size: 32px; text-align: center; font-weight: bold; color: #4ade80; background: #064e3b; padding: 15px; border-radius: 8px; border: 2px solid #059669; }
-        .input-group { margin-bottom: 12px; display: flex; flex-direction: column; gap: 5px; }
-        input { background: #334155; color: #fff; border: 1px solid #475569; padding: 10px; border-radius: 6px; font-size: 16px; }
-        button { background: #2563eb; color: white; border: none; padding: 12px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 16px; width: 100%; transition: background 0.2s; }
-        button:hover { background: #1d4ed8; }
-        button:disabled { background: #475569; cursor: not-allowed; opacity: 0.4; }
-        button.blind-btn { background: #d97706; }
-        button.chaal-btn { background: #059669; }
-        button.fold-btn { background: #dc2626; }
-        
-        /* Bet Size Tabs styling */
-        .bet-tabs { display: flex; gap: 8px; margin-bottom: 12px; }
-        .bet-tab { background: #334155; border: 2px solid #475569; padding: 10px; border-radius: 8px; font-weight: bold; text-align: center; flex: 1; cursor: pointer; transition: all 0.2s; }
-        .bet-tab.selected { background: #2563eb; border-color: #3b82f6; color: #fff; transform: scale(1.03); }
-        
-        /* Players list layout modifications */
-        .player-badge { display: flex; justify-content: space-between; padding: 12px; background: #334155; border-radius: 6px; margin-bottom: 8px; align-items: center; border: 2px solid transparent; }
-        .active-turn { border: 2px solid #fbbf24; background: #1e3a8a; }
-        .history-text { font-size: 11px; color: #94a3b8; margin-top: 4px; font-family: monospace; }
-        .status-bar { text-align: center; color: #94a3b8; font-weight: bold; font-size: 16px; margin-top: 5px; background: #1e293b; padding: 10px; border-radius: 6px; border: 1px solid #475569; }
-        .hidden { display: none; }
-        .flex-row { display: flex; gap: 10px; margin-top: 10px; }
-        .admin-crown-btn { background: #fbbf24; color: #000; font-size: 12px; padding: 6px 10px; width: auto; border-radius: 4px; }
-        .badge-left { display: flex; flex-direction: column; }
+        :root {
+            color-scheme: dark;
+            --bg: #020617;
+            --panel: #111827;
+            --panel-2: #1e293b;
+            --muted: #94a3b8;
+            --line: #334155;
+            --gold: #fbbf24;
+            --green: #22c55e;
+            --blue: #3b82f6;
+            --red: #ef4444;
+            --amber: #f59e0b;
+            --purple: #8b5cf6;
+        }
+
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            padding: 16px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background:
+                radial-gradient(circle at top, rgba(59, 130, 246, 0.18), transparent 35%),
+                linear-gradient(180deg, #020617 0%, #0f172a 50%, #020617 100%);
+            color: #f8fafc;
+            min-height: 100vh;
+        }
+        .container { max-width: 1100px; margin: 0 auto; }
+        .hero { text-align: center; margin-bottom: 18px; }
+        .hero h1 { margin: 0 0 8px; color: var(--gold); font-size: clamp(28px, 4vw, 40px); }
+        .hero p { margin: 0; color: #cbd5e1; }
+        .card {
+            background: rgba(15, 23, 42, 0.92);
+            border: 1px solid rgba(71, 85, 105, 0.65);
+            border-radius: 18px;
+            padding: 18px;
+            margin-bottom: 16px;
+            box-shadow: 0 18px 45px rgba(2, 6, 23, 0.42);
+            backdrop-filter: blur(12px);
+        }
+        h2, h3, h4 { margin: 0 0 12px; color: #f8fafc; }
+        .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+        .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+        .input-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+        label { color: #cbd5e1; font-size: 14px; }
+        input, textarea, select {
+            width: 100%;
+            border: 1px solid #475569;
+            background: rgba(30, 41, 59, 0.95);
+            color: #fff;
+            border-radius: 10px;
+            padding: 12px;
+            font-size: 15px;
+        }
+        textarea { min-height: 92px; resize: vertical; }
+        button {
+            width: 100%;
+            border: none;
+            border-radius: 12px;
+            background: var(--blue);
+            color: #fff;
+            font-weight: 700;
+            padding: 13px 14px;
+            font-size: 15px;
+            cursor: pointer;
+            transition: transform 0.18s ease, opacity 0.18s ease, background 0.18s ease;
+        }
+        button:hover { transform: translateY(-1px); }
+        button:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+        .secondary-btn { background: #475569; }
+        .danger-btn { background: var(--red); }
+        .success-btn { background: #059669; }
+        .warning-btn { background: #b45309; }
+        .purple-btn { background: var(--purple); }
+        .ghost-btn { width: auto; padding: 8px 10px; font-size: 12px; border-radius: 8px; }
+        .inline-actions, .flex-row { display: flex; gap: 10px; flex-wrap: wrap; }
+        .top-row, .status-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(30, 41, 59, 0.95);
+            border: 1px solid #475569;
+            color: #e2e8f0;
+            border-radius: 999px;
+            padding: 7px 12px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+        .pill.success { border-color: rgba(34, 197, 94, 0.45); color: #86efac; }
+        .pill.warning { border-color: rgba(245, 158, 11, 0.45); color: #fcd34d; }
+        .pill.danger { border-color: rgba(239, 68, 68, 0.45); color: #fca5a5; }
+        .pill.info { border-color: rgba(59, 130, 246, 0.45); color: #93c5fd; }
+        .muted { color: var(--muted); }
+        .help-text { color: #cbd5e1; font-size: 13px; margin-top: 6px; }
+        .error-box, .info-box {
+            border-radius: 12px;
+            padding: 12px;
+            margin-top: 12px;
+            font-size: 14px;
+        }
+        .error-box { background: rgba(127, 29, 29, 0.35); color: #fecaca; border: 1px solid rgba(239, 68, 68, 0.35); }
+        .info-box { background: rgba(30, 64, 175, 0.26); color: #bfdbfe; border: 1px solid rgba(59, 130, 246, 0.35); }
+        .hidden { display: none !important; }
+        .pot-box {
+            text-align: center;
+            padding: 16px;
+            border-radius: 18px;
+            background: linear-gradient(180deg, rgba(5, 150, 105, 0.22), rgba(6, 78, 59, 0.55));
+            border: 1px solid rgba(16, 185, 129, 0.36);
+        }
+        .pot-box .value { display: block; font-size: clamp(34px, 6vw, 50px); color: #86efac; font-weight: 800; }
+        .stat-tile {
+            border-radius: 16px;
+            border: 1px solid rgba(71, 85, 105, 0.65);
+            background: rgba(15, 23, 42, 0.88);
+            padding: 14px;
+        }
+        .stat-tile small { display: block; color: var(--muted); margin-bottom: 8px; }
+        .stat-tile strong { font-size: 24px; }
+        .phase-banner {
+            margin-top: 10px;
+            border-radius: 14px;
+            padding: 14px;
+            background: linear-gradient(90deg, rgba(30, 64, 175, 0.38), rgba(88, 28, 135, 0.32));
+            border: 1px solid rgba(96, 165, 250, 0.3);
+        }
+        .phase-title { font-size: 20px; font-weight: 800; color: #e0f2fe; }
+        .turn-indicator { color: #e2e8f0; margin-top: 4px; }
+        .bet-tabs { display: grid; grid-template-columns: repeat(auto-fit, minmax(72px, 1fr)); gap: 10px; margin-bottom: 12px; }
+        .bet-tab {
+            border: 2px solid #475569;
+            background: #1e293b;
+            padding: 12px;
+            text-align: center;
+            border-radius: 12px;
+            font-weight: 800;
+            cursor: pointer;
+            user-select: none;
+        }
+        .bet-tab.selected { border-color: #60a5fa; background: #1d4ed8; }
+        .action-card { border: 1px solid rgba(96, 165, 250, 0.22); }
+        .player-list, .log-list, .chat-list, .history-list { display: flex; flex-direction: column; gap: 10px; }
+        .player-badge {
+            border-radius: 16px;
+            padding: 14px;
+            border: 1px solid rgba(71, 85, 105, 0.65);
+            background: rgba(30, 41, 59, 0.92);
+        }
+        .player-badge.active-turn { border-color: rgba(251, 191, 36, 0.68); box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.35) inset; }
+        .player-badge.wealth-high { background: linear-gradient(180deg, rgba(20, 83, 45, 0.78), rgba(15, 23, 42, 0.95)); }
+        .player-badge.wealth-medium { background: linear-gradient(180deg, rgba(30, 64, 175, 0.34), rgba(15, 23, 42, 0.95)); }
+        .player-badge.wealth-low { background: linear-gradient(180deg, rgba(127, 29, 29, 0.35), rgba(15, 23, 42, 0.95)); }
+        .player-top { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+        .player-name { font-size: 17px; font-weight: 800; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        .status-chip {
+            display: inline-flex;
+            gap: 6px;
+            align-items: center;
+            border-radius: 999px;
+            padding: 5px 8px;
+            font-size: 11px;
+            font-weight: 800;
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            color: #e2e8f0;
+        }
+        .status-active { color: #fde68a; border-color: rgba(251, 191, 36, 0.35); }
+        .status-folded { color: #fca5a5; border-color: rgba(239, 68, 68, 0.35); }
+        .status-allin { color: #bfdbfe; border-color: rgba(59, 130, 246, 0.35); }
+        .status-disconnected { color: #cbd5e1; border-color: rgba(148, 163, 184, 0.35); }
+        .substats { margin-top: 6px; color: #cbd5e1; font-size: 13px; line-height: 1.5; }
+        .mini-controls { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
+        .showdown-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 8px; margin-top: 12px; }
+        .log-item, .chat-item, .history-item {
+            border-radius: 12px;
+            padding: 11px 12px;
+            background: rgba(15, 23, 42, 0.84);
+            border: 1px solid rgba(51, 65, 85, 0.9);
+            font-size: 14px;
+        }
+        .log-time, .chat-time { color: var(--muted); font-size: 12px; margin-top: 4px; }
+        .chat-item strong { color: #bfdbfe; }
+        .empty-state { color: #94a3b8; text-align: center; padding: 18px 10px; }
+        .toast {
+            position: fixed;
+            right: 18px;
+            bottom: 18px;
+            z-index: 50;
+            min-width: 220px;
+            max-width: 360px;
+            padding: 14px 16px;
+            border-radius: 14px;
+            background: rgba(15, 23, 42, 0.94);
+            color: #fff;
+            border: 1px solid rgba(96, 165, 250, 0.32);
+            box-shadow: 0 18px 45px rgba(2, 6, 23, 0.48);
+            transform: translateY(16px);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s ease, transform 0.25s ease;
+        }
+        .toast.show { opacity: 1; transform: translateY(0); }
+        .toast.success { border-color: rgba(34, 197, 94, 0.45); }
+        .toast.warning { border-color: rgba(245, 158, 11, 0.45); }
+        .toast.danger { border-color: rgba(239, 68, 68, 0.45); }
+        .footer-note { text-align: center; color: #94a3b8; font-size: 12px; margin-top: 18px; }
+
+        @media (max-width: 860px) {
+            .stats-grid, .grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        @media (max-width: 640px) {
+            body { padding: 10px; }
+            .grid-2, .stats-grid, .grid-3, .showdown-grid { grid-template-columns: 1fr; }
+            .top-row, .status-header, .player-top { flex-direction: column; align-items: stretch; }
+            .pill { width: fit-content; }
+            button { min-height: 48px; font-size: 16px; }
+        }
     </style>
 </head>
 <body>
-
 <div class="container">
-    <h1>♠ Teen Patti Companion ♠</h1>
+    <div class="hero">
+        <h1>♠ Teen Patti Companion ♠</h1>
+        <p>Sharper game flow, cleaner admin tools, and safer real-time room setup.</p>
+    </div>
 
-    <!-- SECTION 1: JOIN/CREATE ROOM -->
     <div id="setupScreen" class="card">
-        <h2>Join a Table</h2>
-        <div class="input-group">
-            <label>Your Name</label>
-            <input type="text" id="playerNameInput" placeholder="Enter name...">
+        <div class="status-header">
+            <div>
+                <h2>Join or Create a Table</h2>
+                <p class="muted" style="margin:0;">Enter your room details, configure the table, and paste your own Ably API key at runtime.</p>
+            </div>
+            <span id="setupConnectionStatus" class="pill info">Offline</span>
         </div>
-        <div class="input-group">
-            <label>Table Code</label>
-            <input type="text" id="tableCodeInput" placeholder="e.g. GOLD77">
+
+        <div class="grid-2">
+            <div class="input-group">
+                <label for="playerNameInput">Your Name</label>
+                <input type="text" id="playerNameInput" placeholder="Enter name...">
+            </div>
+            <div class="input-group">
+                <label for="tableCodeInput">Table Code</label>
+                <input type="text" id="tableCodeInput" placeholder="e.g. GOLD77">
+            </div>
         </div>
+
+        <div class="input-group">
+            <label for="ablyKeyInput">Ably API Key</label>
+            <input type="password" id="ablyKeyInput" placeholder="Paste your runtime key here">
+            <div class="help-text">The key is stored only in your browser so credentials are not hard-coded in the page.</div>
+        </div>
+
+        <div class="grid-3">
+            <div class="input-group">
+                <label for="buyInInput">Initial Buy-in (€)</label>
+                <input type="number" id="buyInInput" min="10" step="10" value="200">
+            </div>
+            <div class="input-group">
+                <label for="turnTimerInput">Turn Timer (seconds)</label>
+                <input type="number" id="turnTimerInput" min="10" max="120" value="30">
+            </div>
+            <div class="input-group">
+                <label for="chipDenominationsInput">Chip Denominations</label>
+                <input type="text" id="chipDenominationsInput" value="1,5,10,50,100">
+            </div>
+        </div>
+
+        <div class="input-group">
+            <label for="houseRulesInput">House Rules</label>
+            <textarea id="houseRulesInput" placeholder="Optional: e.g. max 2 blinds, pause on disconnect, host resolves showdown"></textarea>
+        </div>
+
+        <div class="inline-actions" style="align-items:center; margin-bottom:12px;">
+            <label style="display:inline-flex; align-items:center; gap:8px; margin:0;">
+                <input type="checkbox" id="soundToggleInput" style="width:auto;">
+                Sound effects
+            </label>
+        </div>
+
         <button onclick="connectToTable()">Enter Table</button>
+        <div id="setupInfo" class="info-box">Tip: the first player in a room becomes the admin and can control buy-ins, rules, pause/resume, and hand resolution.</div>
+        <div id="setupError" class="error-box hidden"></div>
     </div>
 
-    <!-- SECTION 2: LIVE GAMEBOARD -->
     <div id="gameScreen" class="hidden">
-        <div class="card" style="padding: 10px 20px;">
-            <h3 style="margin: 0; text-align: left; font-size:14px; color:#94a3b8;">Table Code: <span id="displayTableCode" style="color:#fff;"></span> <span id="adminBadge" style="color:#fbbf24; display:none; font-size:12px;">[ADMIN]</span></h3>
-        </div>
-
-        <!-- NEW PENDING TURN DISPLAY -->
-        <div class="status-bar" id="turnIndicator">Waiting for game initiation...</div>
-        <br>
-
         <div class="card">
-            <h3>Current Pot</h3>
-            <div class="pot-display">€<span id="potValue">0</span></div>
+            <div class="top-row">
+                <div>
+                    <h3 style="margin-bottom:6px;">Table <span id="displayTableCode" style="color:var(--gold);"></span> <span id="adminBadge" class="pill warning hidden">ADMIN</span></h3>
+                    <div class="muted">Turn order, side pots, chat, history, and reconnect-safe state are all shared live.</div>
+                </div>
+                <div class="inline-actions" style="justify-content:flex-end;">
+                    <span id="liveConnectionStatus" class="pill info">Connecting</span>
+                    <button class="secondary-btn ghost-btn" onclick="disconnectAndReturn()">Change Table</button>
+                </div>
+            </div>
+            <div class="phase-banner">
+                <div class="phase-title" id="phaseIndicator">Pre-game</div>
+                <div class="turn-indicator" id="turnIndicator">Waiting for the first hand to begin.</div>
+            </div>
         </div>
 
-        <!-- ACTION PAD -->
-        <div id="actionPad" class="card">
-            <h3>Your Turn Actions</h3>
-            <label style="display:block; margin-bottom: 6px; font-size: 14px; color: #cbd5e1;">Select Chaal Amount:</label>
-            <div class="bet-tabs">
-                <div class="bet-tab selected" onclick="selectBetTab(2)" id="tab-2">€2</div>
-                <div class="bet-tab" onclick="selectBetTab(3)" id="tab-3">€3</div>
-                <div class="bet-tab" onclick="selectBetTab(4)" id="tab-4">€4</div>
-                <div class="bet-tab" onclick="selectBetTab(5)" id="tab-5">€5</div>
+        <div class="stats-grid">
+            <div class="stat-tile pot-box">
+                <small>Current Pot</small>
+                <span class="value">€<span id="potValue">0</span></span>
             </div>
-            
+            <div class="stat-tile">
+                <small>Minimum Bet</small>
+                <strong id="minimumBetValue">€1</strong>
+            </div>
+            <div class="stat-tile">
+                <small>Turn Countdown</small>
+                <strong id="countdownValue">--</strong>
+            </div>
+            <div class="stat-tile">
+                <small>Hand Number</small>
+                <strong id="handNumberValue">0</strong>
+            </div>
+        </div>
+
+        <div id="actionPad" class="card action-card hidden">
+            <div class="status-header">
+                <div>
+                    <h3>Your Turn Actions</h3>
+                    <div class="muted" id="actionHint">Choose a chip amount, then act.</div>
+                </div>
+                <span id="pausePill" class="pill warning hidden">Paused</span>
+            </div>
+            <div id="betTabs" class="bet-tabs"></div>
             <div class="flex-row">
-                <button id="blindActionBtn" class="blind-btn" onclick="submitMove('Blind')">Blind (€1)</button>
-                <button id="chaalActionBtn" class="chaal-btn" onclick="submitMove('Chaal')">Chaal</button>
-                <button class="fold-btn" onclick="submitMove('Fold')">Fold</button>
+                <button id="blindActionBtn" class="warning-btn" onclick="submitMove('Blind')">Blind</button>
+                <button id="chaalActionBtn" class="success-btn" onclick="submitMove('Chaal')">Chaal</button>
+                <button id="allInActionBtn" class="purple-btn" onclick="submitMove('All-in')">All-in</button>
+                <button id="foldActionBtn" class="danger-btn" onclick="submitMove('Fold')">Fold</button>
             </div>
         </div>
 
-        <!-- PLAYER ROSTER WITH WIN LOGS AND ADMIN PAYOUT CONTROLS -->
+        <div id="adminPanel" class="card hidden">
+            <div class="status-header">
+                <div>
+                    <h3>Admin Controls</h3>
+                    <div class="muted">Manage house rules, buy-ins, session flow, and exports.</div>
+                </div>
+                <span class="pill warning">Host Only</span>
+            </div>
+            <div class="grid-3">
+                <div class="input-group">
+                    <label for="adminBuyInInput">Initial Buy-in (€)</label>
+                    <input type="number" id="adminBuyInInput" min="10" step="10">
+                </div>
+                <div class="input-group">
+                    <label for="adminTurnTimerInput">Turn Timer (seconds)</label>
+                    <input type="number" id="adminTurnTimerInput" min="10" max="120">
+                </div>
+                <div class="input-group">
+                    <label for="adminChipDenominationsInput">Chip Denominations</label>
+                    <input type="text" id="adminChipDenominationsInput">
+                </div>
+            </div>
+            <div class="input-group">
+                <label for="adminHouseRulesInput">House Rules</label>
+                <textarea id="adminHouseRulesInput"></textarea>
+            </div>
+            <div class="inline-actions" style="align-items:center; margin-bottom:12px;">
+                <label style="display:inline-flex; align-items:center; gap:8px; margin:0;">
+                    <input type="checkbox" id="adminSoundToggleInput" style="width:auto;">
+                    Sound effects
+                </label>
+            </div>
+            <div class="grid-3">
+                <button onclick="saveAdminConfig()">Save Table Settings</button>
+                <button id="togglePauseBtn" class="secondary-btn" onclick="togglePause()">Pause Game</button>
+                <button id="startHandBtn" class="purple-btn" onclick="hostResetHand()">Start Next Hand</button>
+            </div>
+            <div class="grid-2" style="margin-top:10px;">
+                <button class="success-btn" onclick="resolveShowdown()">Resolve Showdown</button>
+                <button class="secondary-btn" onclick="exportSessionData()">Export Session Data</button>
+            </div>
+        </div>
+
         <div class="card">
-            <h3>Players & History</h3>
-            <div id="playerList"></div>
-            <button id="startHandBtn" style="background:#7c3aed; margin-top:15px; display:none;" onclick="hostResetHand()">♥ Start Next Hand ♥</button>
+            <div class="status-header">
+                <div>
+                    <h3>Players & Rankings</h3>
+                    <div class="muted">Players are color-coded by stack size and flagged when folded, all-in, disconnected, or waiting.</div>
+                </div>
+                <span id="sidePotSummary" class="pill info">No side pots</span>
+            </div>
+            <div id="playerList" class="player-list"></div>
+        </div>
+
+        <div class="grid-2">
+            <div class="card">
+                <h3>Action History</h3>
+                <div id="activityLog" class="log-list"></div>
+            </div>
+            <div class="card">
+                <h3>Hand History</h3>
+                <div id="sessionHistory" class="history-list"></div>
+            </div>
+        </div>
+
+        <div class="grid-2">
+            <div class="card">
+                <h3>Table Chat</h3>
+                <div id="chatMessages" class="chat-list"></div>
+                <div class="input-group" style="margin-top:12px;">
+                    <label for="chatInput">Message</label>
+                    <input type="text" id="chatInput" maxlength="180" placeholder="Say something to the table..." onkeydown="if(event.key === 'Enter'){ sendChatMessage(); }">
+                </div>
+                <button onclick="sendChatMessage()">Send Message</button>
+            </div>
+            <div class="card">
+                <h3>Table Rules & Recovery</h3>
+                <div id="houseRulesDisplay" class="info-box">No house rules configured yet.</div>
+                <div class="help-text">State is cached in localStorage so the latest room, player ID, and live snapshot survive page refreshes. Rejoining with the same name and table code reclaims your seat.</div>
+            </div>
         </div>
     </div>
+
+    <div id="toast" class="toast"></div>
+    <div class="footer-note">This single-page game board now keeps state locally, validates moves, supports showdown resolution, and avoids hard-coded live credentials.</div>
 </div>
 
 <script>
-    // --- CONFIGURATION ---
-    // Updated API keys for Ably realtime integration
-    const ABLY_SUBSCRIBE_KEY = 'fnVQhw.AEig-A:CSXDUdvE9TjLFn5etH2nQRxmL_KJDnDvR2uBMeuX1RI';
-    const ABLY_ROOT_KEY = 'fnVQhw.H7cEiA:Ipz3KJ6W9-CCUl4qGuYTTSA-rkCk5gBoFZfIeDUdrQQ';
-
-    let ably, channel;
-    let roomCode = "";
-    let myClientId = "";
-    let myName = "";
-    let currentSelectedBet = 2; // Default tab choice
-    
-    // --- GAME ENGINE STATE ---
-    let gameState = {
-        adminId: "",       // Tracks who configured the room first
-        players: [],       // Array of { id, name, wallet, blindsCount, folded, wins: 0, losses: 0 }
-        pot: 0,
-        turnIndex: 0,
-        handActive: false
+    const LOCAL_STORAGE_KEY = 'teen-patti-lux-gang-v3';
+    const ROOM_SNAPSHOT_PREFIX = 'teen-patti-room-';
+    const PHASES = ['Betting Round 1', 'Betting Round 2', 'Betting Round 3', 'Showdown'];
+    const HAND_STRENGTH = {
+        'high-card': 1,
+        'pair': 2,
+        'color': 3,
+        'sequence': 4,
+        'pure-sequence': 5,
+        'trail': 6
     };
+    const HAND_LABELS = {
+        'high-card': 'High Card',
+        'pair': 'Pair',
+        'color': 'Color',
+        'sequence': 'Sequence',
+        'pure-sequence': 'Pure Sequence',
+        'trail': 'Trail'
+    };
+    const DEFAULT_CONFIG = {
+        initialBuyIn: 200,
+        chipValues: [1, 5, 10, 50, 100],
+        turnSeconds: 30,
+        houseRules: '',
+        soundEnabled: false,
+        blindLimit: 2
+    };
+
+    let ably = null;
+    let channel = null;
+    let roomCode = '';
+    let myClientId = '';
+    let myName = '';
+    let currentSelectedBet = DEFAULT_CONFIG.chipValues[0];
+    let lastRenderedLogCount = 0;
+    let toastTimer = null;
+    let countdownInterval = null;
+    let connectionInitialized = false;
+    let gameState = createDefaultGameState();
+
+    function createDefaultGameState() {
+        return {
+            adminId: '',
+            players: [],
+            pot: 0,
+            sidePots: [],
+            turnIndex: 0,
+            handActive: false,
+            paused: false,
+            pauseReason: '',
+            phaseIndex: 0,
+            handNumber: 0,
+            minimumBet: DEFAULT_CONFIG.chipValues[0],
+            actionDeadline: 0,
+            logs: [],
+            chat: [],
+            sessionHistory: [],
+            config: { ...DEFAULT_CONFIG },
+            lastUpdated: Date.now()
+        };
+    }
+
+    function loadPreferences() {
+        try {
+            return JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '{}');
+        } catch (error) {
+            console.warn('Failed to load local preferences', error);
+            return {};
+        }
+    }
+
+    function savePreferences(prefs) {
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(prefs));
+    }
+
+    function roomSnapshotKey(code) {
+        return `${ROOM_SNAPSHOT_PREFIX}${code}`;
+    }
+
+    function normalizeChipValues(source) {
+        const values = Array.isArray(source)
+            ? source
+            : String(source || '')
+                .split(',')
+                .map((value) => Number(String(value).trim()))
+                .filter((value) => Number.isFinite(value) && value > 0);
+
+        const uniqueSorted = [...new Set(values)].sort((a, b) => a - b);
+        return uniqueSorted.length ? uniqueSorted : [...DEFAULT_CONFIG.chipValues];
+    }
+
+    function ensureConfig(config) {
+        const merged = { ...DEFAULT_CONFIG, ...(config || {}) };
+        merged.initialBuyIn = Math.max(10, Number(merged.initialBuyIn) || DEFAULT_CONFIG.initialBuyIn);
+        merged.turnSeconds = Math.min(120, Math.max(10, Number(merged.turnSeconds) || DEFAULT_CONFIG.turnSeconds));
+        merged.chipValues = normalizeChipValues(merged.chipValues);
+        merged.soundEnabled = Boolean(merged.soundEnabled);
+        merged.houseRules = String(merged.houseRules || '').trim();
+        merged.blindLimit = Math.max(1, Number(merged.blindLimit) || DEFAULT_CONFIG.blindLimit);
+        return merged;
+    }
+
+    function ensurePlayer(player, config) {
+        return {
+            id: player.id,
+            name: player.name || 'Player',
+            wallet: Math.max(0, Number(player.wallet) || 0),
+            buyIn: Math.max(10, Number(player.buyIn) || config.initialBuyIn),
+            folded: Boolean(player.folded),
+            allIn: Boolean(player.allIn),
+            connected: player.connected !== false,
+            inHand: Boolean(player.inHand),
+            blindsCount: Math.max(0, Number(player.blindsCount) || 0),
+            wins: Math.max(0, Number(player.wins) || 0),
+            losses: Math.max(0, Number(player.losses) || 0),
+            totalWon: Math.max(0, Number(player.totalWon) || 0),
+            totalLost: Math.max(0, Number(player.totalLost) || 0),
+            currentBet: Math.max(0, Number(player.currentBet) || 0),
+            actedThisPhase: Boolean(player.actedThisPhase),
+            handCategory: HAND_STRENGTH[player.handCategory] ? player.handCategory : 'high-card',
+            handValue: Math.min(14, Math.max(2, Number(player.handValue) || 14))
+        };
+    }
+
+    function sanitizeState(rawState) {
+        const next = createDefaultGameState();
+        const source = rawState || {};
+        next.adminId = String(source.adminId || '');
+        next.config = ensureConfig(source.config);
+        next.players = Array.isArray(source.players)
+            ? source.players.map((player) => ensurePlayer(player, next.config))
+            : [];
+        next.pot = Math.max(0, Number(source.pot) || 0);
+        next.sidePots = Array.isArray(source.sidePots) ? source.sidePots : [];
+        next.turnIndex = Number.isFinite(source.turnIndex) ? Number(source.turnIndex) : 0;
+        next.handActive = Boolean(source.handActive);
+        next.paused = Boolean(source.paused);
+        next.pauseReason = String(source.pauseReason || '');
+        next.phaseIndex = Number.isFinite(source.phaseIndex) ? Math.min(PHASES.length - 1, Math.max(0, Number(source.phaseIndex))) : 0;
+        next.handNumber = Math.max(0, Number(source.handNumber) || 0);
+        next.minimumBet = Math.max(next.config.chipValues[0], Number(source.minimumBet) || next.config.chipValues[0]);
+        next.actionDeadline = Math.max(0, Number(source.actionDeadline) || 0);
+        next.logs = Array.isArray(source.logs) ? source.logs.slice(-80) : [];
+        next.chat = Array.isArray(source.chat) ? source.chat.slice(-80) : [];
+        next.sessionHistory = Array.isArray(source.sessionHistory) ? source.sessionHistory.slice(-50) : [];
+        next.lastUpdated = Math.max(Date.now(), Number(source.lastUpdated) || Date.now());
+        if (!next.players.length) {
+            next.turnIndex = 0;
+        } else if (next.turnIndex >= next.players.length) {
+            next.turnIndex = 0;
+        }
+        return next;
+    }
+
+    function saveRoomSnapshot() {
+        if (!roomCode) return;
+        localStorage.setItem(roomSnapshotKey(roomCode), JSON.stringify(gameState));
+    }
+
+    function loadRoomSnapshot(code) {
+        try {
+            const snapshot = localStorage.getItem(roomSnapshotKey(code));
+            return snapshot ? sanitizeState(JSON.parse(snapshot)) : createDefaultGameState();
+        } catch (error) {
+            console.warn('Failed to load room snapshot', error);
+            return createDefaultGameState();
+        }
+    }
+
+    function hydrateSetupFromPreferences() {
+        const prefs = loadPreferences();
+        document.getElementById('playerNameInput').value = prefs.playerName || '';
+        document.getElementById('tableCodeInput').value = prefs.roomCode || '';
+        document.getElementById('ablyKeyInput').value = prefs.ablyKey || '';
+        document.getElementById('buyInInput').value = prefs.initialBuyIn || DEFAULT_CONFIG.initialBuyIn;
+        document.getElementById('turnTimerInput').value = prefs.turnSeconds || DEFAULT_CONFIG.turnSeconds;
+        document.getElementById('chipDenominationsInput').value = (prefs.chipValues || DEFAULT_CONFIG.chipValues).join(',');
+        document.getElementById('houseRulesInput').value = prefs.houseRules || '';
+        document.getElementById('soundToggleInput').checked = Boolean(prefs.soundEnabled);
+    }
+
+    function updateConnectionStatus(text, tone) {
+        ['setupConnectionStatus', 'liveConnectionStatus'].forEach((id) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.className = `pill ${tone || 'info'}`;
+            el.textContent = text;
+        });
+    }
+
+    function showSetupError(message) {
+        const box = document.getElementById('setupError');
+        if (!message) {
+            box.textContent = '';
+            box.classList.add('hidden');
+            return;
+        }
+        box.textContent = message;
+        box.classList.remove('hidden');
+    }
+
+    function showToast(message, tone) {
+        const toast = document.getElementById('toast');
+        toast.textContent = message;
+        toast.className = `toast ${tone || 'info'} show`;
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => {
+            toast.className = `toast ${tone || 'info'}`;
+        }, 2600);
+        if (gameState.config.soundEnabled) {
+            playNotificationTone();
+        }
+    }
+
+    function playNotificationTone() {
+        try {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            oscillator.type = 'triangle';
+            oscillator.frequency.value = 660;
+            gain.gain.value = 0.02;
+            oscillator.connect(gain);
+            gain.connect(audioContext.destination);
+            oscillator.start();
+            oscillator.stop(audioContext.currentTime + 0.12);
+        } catch (error) {
+            console.debug('Audio playback unavailable', error);
+        }
+    }
+
+    function formatTime(timestamp) {
+        return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+
+    function getStablePlayerId(code, name) {
+        const trimmedName = String(name || '').trim().toLowerCase();
+        const key = `teen-patti-player-id:${code}:${trimmedName}`;
+        let storedId = localStorage.getItem(key);
+        if (!storedId) {
+            storedId = `player_${Math.random().toString(36).slice(2, 11)}`;
+            localStorage.setItem(key, storedId);
+        }
+        return storedId;
+    }
+
+    function findPlayerById(id) {
+        return gameState.players.find((player) => player.id === id);
+    }
+
+    function activeParticipants() {
+        return gameState.players.filter((player) => player.inHand && !player.folded);
+    }
+
+    function canPlayerAct(player) {
+        return Boolean(player && player.inHand && !player.folded && !player.allIn && player.wallet > 0 && player.connected !== false);
+    }
+
+    function calculateWinRate(player) {
+        const totalHands = player.wins + player.losses;
+        return totalHands ? `${Math.round((player.wins / totalHands) * 100)}%` : '0%';
+    }
+
+    function getPlayerRankMap() {
+        const sorted = [...gameState.players].sort((a, b) => {
+            if (b.wins !== a.wins) return b.wins - a.wins;
+            if (b.wallet !== a.wallet) return b.wallet - a.wallet;
+            return a.name.localeCompare(b.name);
+        });
+        const rankMap = {};
+        sorted.forEach((player, index) => {
+            rankMap[player.id] = index + 1;
+        });
+        return rankMap;
+    }
+
+    function getCurrentPlayer() {
+        if (!gameState.players.length || gameState.turnIndex < 0) return null;
+        return gameState.players[gameState.turnIndex] || null;
+    }
+
+    function logEvent(message, type) {
+        gameState.logs.push({
+            id: `log_${Date.now()}_${Math.random().toString(16).slice(2, 8)}`,
+            message,
+            type: type || 'info',
+            timestamp: Date.now()
+        });
+        gameState.logs = gameState.logs.slice(-80);
+    }
+
+    function addChatMessage(text) {
+        gameState.chat.push({
+            id: `chat_${Date.now()}_${Math.random().toString(16).slice(2, 8)}`,
+            playerId: myClientId,
+            author: myName,
+            text,
+            timestamp: Date.now()
+        });
+        gameState.chat = gameState.chat.slice(-80);
+    }
+
+    function broadcastState(skipPublish) {
+        gameState = sanitizeState(gameState);
+        gameState.lastUpdated = Date.now();
+        saveRoomSnapshot();
+        updateGameUI();
+        if (!skipPublish && channel) {
+            channel.publish('stateUpdate', gameState, (error) => {
+                if (error) {
+                    console.error('Failed to publish state', error);
+                    showToast('State sync failed. Retrying when connection recovers.', 'warning');
+                }
+            });
+        }
+    }
+
+    function createPlayer(id, name) {
+        return ensurePlayer({
+            id,
+            name,
+            wallet: gameState.config.initialBuyIn,
+            buyIn: gameState.config.initialBuyIn,
+            connected: true,
+            inHand: false
+        }, gameState.config);
+    }
+
+    function ensureAdmin() {
+        const adminStillExists = gameState.players.some((player) => player.id === gameState.adminId);
+        if (!adminStillExists) {
+            const nextAdmin = gameState.players.find((player) => player.connected !== false) || gameState.players[0];
+            gameState.adminId = nextAdmin ? nextAdmin.id : '';
+        }
+    }
+
+    function syncPresenceMembers(members) {
+        const memberIds = new Set((members || []).map((member) => member.clientId));
+        gameState.players.forEach((player) => {
+            player.connected = memberIds.has(player.id);
+        });
+        if (!findPlayerById(myClientId)) {
+            gameState.players.push(createPlayer(myClientId, myName));
+        }
+        ensureAdmin();
+    }
+
+    function initializeChannel() {
+        if (connectionInitialized || !ably) return;
+        connectionInitialized = true;
+        channel = ably.channels.get(`teen-patti-${roomCode}`);
+
+        channel.subscribe('stateUpdate', (message) => {
+            const previousLogs = gameState.logs.length;
+            gameState = sanitizeState(message.data);
+            saveRoomSnapshot();
+            updateGameUI();
+            if (gameState.logs.length > previousLogs) {
+                const latest = gameState.logs[gameState.logs.length - 1];
+                if (latest) showToast(latest.message, latest.type);
+            }
+        });
+
+        channel.presence.subscribe('enter', (member) => {
+            if (myClientId !== gameState.adminId) return;
+            let player = findPlayerById(member.clientId);
+            if (!player) {
+                player = createPlayer(member.clientId, member.data && member.data.name ? member.data.name : 'Player');
+                gameState.players.push(player);
+                logEvent(`${player.name} joined the table.`, 'success');
+            } else {
+                player.connected = true;
+                player.name = member.data && member.data.name ? member.data.name : player.name;
+                logEvent(`${player.name} rejoined the table.`, 'info');
+            }
+            if (!gameState.adminId) gameState.adminId = myClientId;
+            broadcastState();
+        });
+
+        channel.presence.subscribe('leave', (member) => {
+            if (myClientId !== gameState.adminId) return;
+            const player = findPlayerById(member.clientId);
+            if (!player) return;
+            player.connected = false;
+            logEvent(`${player.name} disconnected.`, 'warning');
+            const current = getCurrentPlayer();
+            if (gameState.handActive && current && current.id === player.id) {
+                gameState.paused = true;
+                gameState.pauseReason = `${player.name} disconnected during their turn.`;
+                logEvent(`Hand paused because ${player.name} disconnected.`, 'warning');
+            }
+            ensureAdmin();
+            broadcastState();
+        });
+
+        channel.presence.enter({ name: myName }, (enterError) => {
+            if (enterError) {
+                console.error('Presence enter failed', enterError);
+                showSetupError('Connected to Ably, but failed to enter table presence. Please retry.');
+                showToast('Presence join failed.', 'danger');
+                return;
+            }
+
+            channel.presence.get((presenceError, members) => {
+                if (presenceError) {
+                    console.error('Presence get failed', presenceError);
+                    showToast('Unable to load players in the room.', 'warning');
+                    return;
+                }
+
+                if (!gameState.players.length) {
+                    gameState.adminId = myClientId;
+                    gameState.players = members.map((member) => createPlayer(member.clientId, member.data && member.data.name ? member.data.name : 'Player'));
+                    if (!gameState.players.some((player) => player.id === myClientId)) {
+                        gameState.players.push(createPlayer(myClientId, myName));
+                    }
+                    logEvent(`${myName} opened the table.`, 'success');
+                    broadcastState();
+                } else if (myClientId === gameState.adminId) {
+                    syncPresenceMembers(members);
+                    broadcastState();
+                } else {
+                    syncPresenceMembers(members);
+                    broadcastState(true);
+                }
+            });
+        });
+    }
 
     function connectToTable() {
         myName = document.getElementById('playerNameInput').value.trim();
         roomCode = document.getElementById('tableCodeInput').value.trim().toUpperCase();
-        
-        if(!myName || !roomCode) {
-            alert("Please provide both your Name and a Table Code.");
+        const ablyKey = document.getElementById('ablyKeyInput').value.trim();
+        const initialBuyIn = Math.max(10, Number(document.getElementById('buyInInput').value) || DEFAULT_CONFIG.initialBuyIn);
+        const turnSeconds = Math.min(120, Math.max(10, Number(document.getElementById('turnTimerInput').value) || DEFAULT_CONFIG.turnSeconds));
+        const chipValues = normalizeChipValues(document.getElementById('chipDenominationsInput').value);
+        const houseRules = document.getElementById('houseRulesInput').value.trim();
+        const soundEnabled = document.getElementById('soundToggleInput').checked;
+
+        showSetupError('');
+
+        if (!myName || !roomCode || !ablyKey) {
+            showSetupError('Please provide your name, table code, and a runtime Ably API key before entering the table.');
             return;
         }
 
-        myClientId = 'id_' + Math.random().toString(36).substr(2, 9);
-
-        // Initialize Ably with the root API key for multi-layer support
-        ably = new Ably.Realtime({ key: ABLY_ROOT_KEY, clientId: myClientId });
-        channel = ably.channels.get('teen-patti-' + roomCode);
-
-        channel.subscribe('stateUpdate', (message) => {
-            gameState = message.data;
-            updateGameUI();
+        savePreferences({
+            playerName: myName,
+            roomCode,
+            ablyKey,
+            initialBuyIn,
+            turnSeconds,
+            chipValues,
+            houseRules,
+            soundEnabled
         });
 
-        channel.presence.subscribe('enter', (member) => {
-            if(myClientId === gameState.adminId) { 
-                syncJoiner(member.clientId, member.data.name);
-            }
+        myClientId = getStablePlayerId(roomCode, myName);
+        gameState = loadRoomSnapshot(roomCode);
+        gameState.config = ensureConfig({
+            ...gameState.config,
+            initialBuyIn,
+            turnSeconds,
+            chipValues,
+            houseRules,
+            soundEnabled
         });
+        gameState.minimumBet = gameState.config.chipValues[0];
+        currentSelectedBet = gameState.config.chipValues.includes(currentSelectedBet) ? currentSelectedBet : gameState.config.chipValues[0];
 
-        channel.presence.enter({ name: myName });
-
-        channel.presence.get((err, members) => {
-            if(!err && gameState.players.length === 0) {
-                // First client inside this code room claims Admin privileges
-                gameState.adminId = myClientId; 
-                members.forEach(m => {
-                    if(!gameState.players.find(p => p.id === m.clientId)) {
-                        gameState.players.push({ id: m.clientId, name: m.data.name, wallet: 200, blindsCount: 0, folded: false, wins: 0, losses: 0 });
-                    }
-                });
-                broadcastState();
-            }
-        });
-
+        document.getElementById('displayTableCode').textContent = roomCode;
         document.getElementById('setupScreen').classList.add('hidden');
-        document.getElementById('displayTableCode').innerText = roomCode;
         document.getElementById('gameScreen').classList.remove('hidden');
-    }
+        renderBetTabs();
+        updateGameUI();
 
-    function syncJoiner(id, name) {
-        if(!gameState.players.find(p => p.id === id)) {
-            gameState.players.push({ id: id, name: name, wallet: 200, blindsCount: 0, folded: false, wins: 0, losses: 0 });
-            broadcastState();
+        try {
+            connectionInitialized = false;
+            if (ably) ably.close();
+            updateConnectionStatus('Connecting', 'info');
+            ably = new Ably.Realtime({ key: ablyKey, clientId: myClientId, recover: roomCode });
+
+            ably.connection.on((stateChange) => {
+                const state = stateChange.current;
+                if (state === 'connected') {
+                    updateConnectionStatus('Connected', 'success');
+                    initializeChannel();
+                } else if (state === 'connecting') {
+                    updateConnectionStatus('Connecting', 'info');
+                } else if (state === 'disconnected' || state === 'suspended') {
+                    updateConnectionStatus('Reconnecting', 'warning');
+                    showToast('Connection interrupted. Waiting for reconnection…', 'warning');
+                } else if (state === 'failed') {
+                    updateConnectionStatus('Failed', 'danger');
+                    showSetupError('Connection failed. Check the Ably key and try again.');
+                    showToast('Unable to connect to the live table.', 'danger');
+                    console.error('Ably connection failed', stateChange.reason);
+                }
+            });
+        } catch (error) {
+            console.error('Failed to initialize realtime client', error);
+            showSetupError('The realtime client could not start. Please verify your runtime key and refresh.');
+            updateConnectionStatus('Failed', 'danger');
         }
     }
 
-    function selectBetTab(val) {
-        currentSelectedBet = val;
-        // Visual tab toggle update loop
-        for(let i=2; i<=5; i++) {
-            document.getElementById(`tab-${i}`).classList.remove('selected');
-        }
-        document.getElementById(`tab-${val}`).classList.add('selected');
-    }
-
-    function broadcastState() {
-        channel.publish('stateUpdate', gameState);
-    }
-
-    function updateGameUI() {
-        document.getElementById('potValue').innerText = gameState.pot;
-        const listContainer = document.getElementById('playerList');
-        listContainer.innerHTML = '';
-
-        const isAdmin = (myClientId === gameState.adminId);
-        
-        // Handle global layout triggers for admin
-        if(isAdmin) {
-            document.getElementById('adminBadge').style.display = "inline";
-            document.getElementById('startHandBtn').style.display = "block";
-        }
-        
-        gameState.players.forEach((player, index) => {
-            const badge = document.createElement('div');
-            badge.className = 'player-badge' + (index === gameState.turnIndex && gameState.handActive ? ' active-turn' : '');
-            
-            const leftDiv = document.createElement('div');
-            leftDiv.className = 'badge-left';
-            
-            const nameSpan = document.createElement('span');
-            nameSpan.innerText = player.name;
-            nameSpan.style.fontWeight = 'bold';
-            
-            const statsSpan = document.createElement('span');
-            statsSpan.innerText = `💰 €${player.wallet} | 🎯 W:${player.wins} L:${player.losses}`;
-            statsSpan.style.fontSize = '12px';
-            statsSpan.style.color = '#cbd5e1';
-            
-            leftDiv.appendChild(nameSpan);
-            leftDiv.appendChild(statsSpan);
-            
-            const rightDiv = document.createElement('div');
-            rightDiv.style.textAlign = 'right';
-            
-            const statusSpan = document.createElement('span');
-            if(player.folded) {
-                statusSpan.innerText = '❌ FOLDED';
-                statusSpan.style.color = '#ef4444';
-            } else if(index === gameState.turnIndex && gameState.handActive) {
-                statusSpan.innerText = '⏳ YOUR TURN';
-                statusSpan.style.color = '#fbbf24';
-                statusSpan.style.fontWeight = 'bold';
-            } else {
-                statusSpan.innerText = '⏸ Waiting';
-                statusSpan.style.color = '#94a3b8';
+    function disconnectAndReturn() {
+        if (channel && myClientId) {
+            try {
+                channel.presence.leave();
+            } catch (error) {
+                console.warn('Presence leave failed', error);
             }
-            
-            rightDiv.appendChild(statusSpan);
-            
-            if(isAdmin) {
-                const adminBtn = document.createElement('button');
-                adminBtn.className = 'admin-crown-btn';
-                adminBtn.innerText = '⭐ Payout';
-                adminBtn.onclick = () => processPayout(player.id);
-                rightDiv.appendChild(adminBtn);
-            }
-            
-            badge.appendChild(leftDiv);
-            badge.appendChild(rightDiv);
-            listContainer.appendChild(badge);
+        }
+        if (ably) {
+            ably.close();
+        }
+        channel = null;
+        ably = null;
+        connectionInitialized = false;
+        document.getElementById('gameScreen').classList.add('hidden');
+        document.getElementById('setupScreen').classList.remove('hidden');
+        updateConnectionStatus('Offline', 'info');
+        showToast('Returned to setup screen.', 'info');
+    }
+
+    function renderBetTabs() {
+        const betTabs = document.getElementById('betTabs');
+        if (!betTabs) return;
+        const chipValues = gameState.config.chipValues || DEFAULT_CONFIG.chipValues;
+        if (!chipValues.includes(currentSelectedBet)) currentSelectedBet = chipValues[0];
+        betTabs.innerHTML = '';
+        chipValues.forEach((value) => {
+            const tab = document.createElement('button');
+            tab.type = 'button';
+            tab.className = `bet-tab${value === currentSelectedBet ? ' selected' : ''}`;
+            tab.textContent = `€${value}`;
+            tab.onclick = () => selectBetTab(value);
+            betTabs.appendChild(tab);
         });
-        
-        // Update turn indicator
-        if(gameState.handActive) {
-            const currentPlayer = gameState.players[gameState.turnIndex];
-            if(currentPlayer.id === myClientId) {
-                document.getElementById('turnIndicator').innerText = '🎪 Your Turn! Make a move...';
-                document.getElementById('actionPad').classList.remove('hidden');
-                // Disable Blind button once the player has used their 2 blind allowance
-                const blindBtn = document.getElementById('blindActionBtn');
-                blindBtn.disabled = (currentPlayer.blindsCount || 0) >= 2;
-                blindBtn.title = currentPlayer.blindsCount >= 2 ? 'Blind limit reached (max 2 per hand)' : '';
-            } else {
-                document.getElementById('turnIndicator').innerText = `⏳ Waiting for ${currentPlayer.name}'s move...`;
-                document.getElementById('actionPad').classList.add('hidden');
+    }
+
+    function selectBetTab(value) {
+        currentSelectedBet = value;
+        renderBetTabs();
+        updateGameUI();
+    }
+
+    function nextActingIndex(startIndex) {
+        if (!gameState.players.length) return -1;
+        for (let offset = 1; offset <= gameState.players.length; offset += 1) {
+            const index = (startIndex + offset) % gameState.players.length;
+            if (canPlayerAct(gameState.players[index])) {
+                return index;
             }
-        } else {
-            document.getElementById('turnIndicator').innerText = '⏸ Waiting for next hand...';
-            document.getElementById('actionPad').classList.add('hidden');
         }
+        return -1;
+    }
+
+    function resetActedFlagsForPhase() {
+        gameState.players.forEach((player) => {
+            if (player.inHand && !player.folded && !player.allIn && player.wallet > 0) {
+                player.actedThisPhase = false;
+            }
+        });
+    }
+
+    function updateActionDeadline() {
+        gameState.actionDeadline = gameState.handActive && !gameState.paused ? Date.now() + (gameState.config.turnSeconds * 1000) : 0;
+    }
+
+    function buildSidePots() {
+        const contributors = gameState.players
+            .filter((player) => player.inHand && player.currentBet > 0)
+            .map((player) => ({ id: player.id, amount: player.currentBet }));
+
+        const pots = [];
+        while (contributors.some((entry) => entry.amount > 0)) {
+            const positiveAmounts = contributors.filter((entry) => entry.amount > 0).map((entry) => entry.amount);
+            const smallest = Math.min(...positiveAmounts);
+            const eligibleIds = contributors.filter((entry) => entry.amount > 0).map((entry) => entry.id);
+            const amount = smallest * eligibleIds.length;
+            const contestingIds = eligibleIds.filter((id) => {
+                const player = findPlayerById(id);
+                return player && !player.folded;
+            });
+            pots.push({ amount, eligibleIds: contestingIds });
+            contributors.forEach((entry) => {
+                if (entry.amount > 0) entry.amount -= smallest;
+            });
+        }
+        return pots;
+    }
+
+    function applyContribution(player, amount, label) {
+        const contribution = Math.min(player.wallet, Math.max(0, amount));
+        if (contribution <= 0) return 0;
+        player.wallet -= contribution;
+        player.currentBet += contribution;
+        player.totalLost += contribution;
+        if (player.wallet === 0) player.allIn = true;
+        gameState.pot += contribution;
+        gameState.minimumBet = Math.max(gameState.config.chipValues[0], Math.min(currentSelectedBet, contribution || gameState.config.chipValues[0]));
+        logEvent(`${player.name} ${label} €${contribution}.`, label === 'went all-in for' ? 'warning' : 'info');
+        return contribution;
+    }
+
+    function finalizeHand(winners, reason) {
+        if (!winners.length) return;
+        winners.forEach((winner) => {
+            winner.wins += 1;
+        });
+        gameState.players.forEach((player) => {
+            if (player.inHand && !winners.some((winner) => winner.id === player.id)) {
+                player.losses += 1;
+            }
+        });
+        const summary = `${winners.map((winner) => winner.name).join(', ')} won €${gameState.pot}${reason ? ` (${reason})` : ''}`;
+        logEvent(summary, 'success');
+        gameState.sessionHistory.unshift({
+            id: `hand_${gameState.handNumber}_${Date.now()}`,
+            handNumber: gameState.handNumber,
+            summary,
+            pot: gameState.pot,
+            timestamp: Date.now(),
+            sidePots: buildSidePots()
+        });
+        gameState.sessionHistory = gameState.sessionHistory.slice(-50);
+        gameState.handActive = false;
+        gameState.paused = false;
+        gameState.pauseReason = '';
+        gameState.phaseIndex = 0;
+        gameState.turnIndex = 0;
+        gameState.actionDeadline = 0;
+        gameState.sidePots = buildSidePots();
+        gameState.players.forEach((player) => {
+            player.inHand = false;
+            player.actedThisPhase = false;
+            player.currentBet = 0;
+            player.blindsCount = 0;
+            player.allIn = false;
+        });
+    }
+
+    function awardSingleWinner(winner, reason) {
+        winner.wallet += gameState.pot;
+        winner.totalWon += gameState.pot;
+        finalizeHand([winner], reason);
+    }
+
+    function activeNonFoldedPlayers() {
+        return gameState.players.filter((player) => player.inHand && !player.folded);
+    }
+
+    function advanceTurnOrPhase() {
+        const contenders = activeNonFoldedPlayers();
+        if (contenders.length === 1) {
+            awardSingleWinner(contenders[0], 'everyone else folded');
+            return;
+        }
+
+        const playersWhoCanAct = gameState.players.filter((player) => canPlayerAct(player));
+        if (!playersWhoCanAct.length) {
+            gameState.phaseIndex = PHASES.length - 1;
+            gameState.turnIndex = -1;
+            gameState.sidePots = buildSidePots();
+            logEvent('All remaining players are all-in or waiting for showdown.', 'warning');
+            return;
+        }
+
+        const phaseComplete = playersWhoCanAct.every((player) => player.actedThisPhase);
+        if (phaseComplete) {
+            if (gameState.phaseIndex >= PHASES.length - 2) {
+                gameState.phaseIndex = PHASES.length - 1;
+                gameState.turnIndex = -1;
+                gameState.sidePots = buildSidePots();
+                logEvent('Showdown is ready. Admin can resolve the winning hand.', 'success');
+                return;
+            }
+            gameState.phaseIndex += 1;
+            resetActedFlagsForPhase();
+            const nextIndex = gameState.players.findIndex((player) => canPlayerAct(player));
+            gameState.turnIndex = nextIndex;
+            updateActionDeadline();
+            logEvent(`${PHASES[gameState.phaseIndex]} has started.`, 'info');
+            return;
+        }
+
+        const nextIndex = nextActingIndex(gameState.turnIndex);
+        gameState.turnIndex = nextIndex;
+        updateActionDeadline();
     }
 
     function submitMove(moveType) {
-        const currentPlayer = gameState.players[gameState.turnIndex];
-        if(currentPlayer.id !== myClientId) {
-            alert("It's not your turn!");
+        if (!gameState.handActive) {
+            alert('There is no active hand. Start a new hand first.');
+            return;
+        }
+        if (gameState.paused) {
+            alert(`The hand is paused. ${gameState.pauseReason || 'Resume the table to continue.'}`);
             return;
         }
 
-        if(moveType === 'Blind') {
-            if((currentPlayer.blindsCount || 0) >= 2) {
-                alert("You have already played 2 blinds this hand. You must Chaal or Fold.");
-                return;
-            }
-            currentPlayer.blindsCount = (currentPlayer.blindsCount || 0) + 1;
-            currentPlayer.wallet -= 1;
-            gameState.pot += 1;
-        } else if(moveType === 'Chaal') {
-            currentPlayer.wallet -= currentSelectedBet;
-            gameState.pot += currentSelectedBet;
-        } else if(moveType === 'Fold') {
-            currentPlayer.folded = true;
+        const currentPlayer = getCurrentPlayer();
+        if (!currentPlayer || currentPlayer.id !== myClientId) {
+            alert("It's not your turn!");
+            return;
+        }
+        if (!canPlayerAct(currentPlayer)) {
+            alert('You cannot act right now.');
+            return;
         }
 
-        // Move to next player
-        gameState.turnIndex = (gameState.turnIndex + 1) % gameState.players.length;
+        const blindCost = gameState.config.chipValues[0];
+        if (moveType === 'Fold' && !window.confirm('Fold this hand? You will be out until the next hand starts.')) {
+            return;
+        }
+        if (moveType === 'All-in' && !window.confirm('Go all-in with your remaining wallet?')) {
+            return;
+        }
+
+        if (moveType === 'Blind') {
+            if (currentPlayer.blindsCount >= gameState.config.blindLimit) {
+                alert(`Blind limit reached. Use Chaal, All-in, or Fold.`);
+                return;
+            }
+            if (currentPlayer.wallet < blindCost) {
+                alert('You do not have enough chips left for another blind. Consider going all-in or folding.');
+                return;
+            }
+            currentPlayer.blindsCount += 1;
+            applyContribution(currentPlayer, blindCost, 'played blind for');
+        } else if (moveType === 'Chaal') {
+            if (currentPlayer.wallet < currentSelectedBet) {
+                alert('Selected chaal is higher than your wallet. Use a smaller chip, go all-in, or fold.');
+                return;
+            }
+            applyContribution(currentPlayer, currentSelectedBet, 'bet');
+        } else if (moveType === 'All-in') {
+            if (currentPlayer.wallet <= 0) {
+                alert('You have no chips left to go all-in.');
+                return;
+            }
+            applyContribution(currentPlayer, currentPlayer.wallet, 'went all-in for');
+            currentPlayer.allIn = true;
+        } else if (moveType === 'Fold') {
+            currentPlayer.folded = true;
+            logEvent(`${currentPlayer.name} folded.`, 'warning');
+        }
+
+        currentPlayer.actedThisPhase = true;
+        gameState.sidePots = buildSidePots();
+        advanceTurnOrPhase();
         broadcastState();
     }
 
     function hostResetHand() {
-        if(myClientId !== gameState.adminId) {
-            alert("Only admin can reset the hand!");
+        if (myClientId !== gameState.adminId) {
+            alert('Only the admin can start a hand.');
+            return;
+        }
+        const eligiblePlayers = gameState.players.filter((player) => player.wallet > 0 && player.connected !== false);
+        if (eligiblePlayers.length < 2) {
+            alert('At least two connected players with chips are required to start a hand.');
             return;
         }
 
         gameState.handActive = true;
-        gameState.turnIndex = 0;
+        gameState.paused = false;
+        gameState.pauseReason = '';
+        gameState.phaseIndex = 0;
+        gameState.handNumber += 1;
         gameState.pot = 0;
-        gameState.players.forEach(p => { p.folded = false; p.blindsCount = 0; });
+        gameState.sidePots = [];
+        gameState.minimumBet = gameState.config.chipValues[0];
+        gameState.players.forEach((player) => {
+            player.folded = false;
+            player.allIn = false;
+            player.inHand = player.wallet > 0 && player.connected !== false;
+            player.blindsCount = 0;
+            player.currentBet = 0;
+            player.actedThisPhase = false;
+        });
+        gameState.turnIndex = gameState.players.findIndex((player) => canPlayerAct(player));
+        updateActionDeadline();
+        logEvent(`Hand #${gameState.handNumber} started.`, 'success');
         broadcastState();
     }
 
-    function processPayout(winnerId) {
-        if(myClientId !== gameState.adminId) {
-            alert("Only admin can process payouts!");
+    function compareHands(playerA, playerB) {
+        const rankA = HAND_STRENGTH[playerA.handCategory] || 0;
+        const rankB = HAND_STRENGTH[playerB.handCategory] || 0;
+        if (rankA !== rankB) return rankA - rankB;
+        return (Number(playerA.handValue) || 0) - (Number(playerB.handValue) || 0);
+    }
+
+    function resolveShowdown() {
+        if (myClientId !== gameState.adminId) {
+            alert('Only the admin can resolve the showdown.');
+            return;
+        }
+        if (!gameState.handActive) {
+            alert('There is no hand to resolve.');
+            return;
+        }
+        if (gameState.phaseIndex !== PHASES.length - 1 && !window.confirm('Resolve the hand before the final phase finishes?')) {
+            return;
+        }
+        if (!window.confirm('End the hand and determine winners from the configured showdown values?')) {
             return;
         }
 
-        const winner = gameState.players.find(p => p.id === winnerId);
-        if(!winner) return;
+        const sidePots = buildSidePots();
+        const remainingPlayers = activeNonFoldedPlayers();
+        if (!remainingPlayers.length) {
+            alert('No active players remain in the hand.');
+            return;
+        }
+        if (!sidePots.length) {
+            const winner = [...remainingPlayers].sort(compareHands).pop();
+            winner.wallet += gameState.pot;
+            winner.totalWon += gameState.pot;
+            finalizeHand([winner], `showdown with ${HAND_LABELS[winner.handCategory]}`);
+            broadcastState();
+            return;
+        }
 
-        winner.wallet += gameState.pot;
-        winner.wins += 1;
-        gameState.players.forEach(p => {
-            if(!p.folded && p.id !== winnerId) p.losses += 1;
+        const winnersById = {};
+        sidePots.forEach((sidePot) => {
+            const eligible = remainingPlayers.filter((player) => sidePot.eligibleIds.includes(player.id));
+            if (!eligible.length) return;
+            const sorted = [...eligible].sort(compareHands);
+            const best = sorted[sorted.length - 1];
+            const tiedWinners = eligible.filter((player) => compareHands(player, best) === 0);
+            const splitAmount = Math.floor(sidePot.amount / tiedWinners.length);
+            let remainder = sidePot.amount - (splitAmount * tiedWinners.length);
+            tiedWinners.forEach((winner) => {
+                const bonus = remainder > 0 ? 1 : 0;
+                winner.wallet += splitAmount + bonus;
+                winner.totalWon += splitAmount + bonus;
+                remainder -= bonus;
+                winnersById[winner.id] = winner;
+            });
         });
 
-        gameState.pot = 0;
-        gameState.handActive = false;
+        const winners = Object.values(winnersById);
+        finalizeHand(winners, 'showdown');
         broadcastState();
     }
 
-    // Initialize UI on load
+    function saveAdminConfig() {
+        if (myClientId !== gameState.adminId) {
+            alert('Only the admin can change table settings.');
+            return;
+        }
+        const initialBuyIn = Math.max(10, Number(document.getElementById('adminBuyInInput').value) || gameState.config.initialBuyIn);
+        const turnSeconds = Math.min(120, Math.max(10, Number(document.getElementById('adminTurnTimerInput').value) || gameState.config.turnSeconds));
+        const chipValues = normalizeChipValues(document.getElementById('adminChipDenominationsInput').value);
+        const houseRules = document.getElementById('adminHouseRulesInput').value.trim();
+        const soundEnabled = document.getElementById('adminSoundToggleInput').checked;
+
+        gameState.config = ensureConfig({ initialBuyIn, turnSeconds, chipValues, houseRules, soundEnabled });
+        gameState.minimumBet = gameState.config.chipValues[0];
+        currentSelectedBet = gameState.config.chipValues.includes(currentSelectedBet) ? currentSelectedBet : gameState.config.chipValues[0];
+        renderBetTabs();
+        logEvent('Admin updated the house rules and table settings.', 'success');
+        broadcastState();
+    }
+
+    function togglePause() {
+        if (myClientId !== gameState.adminId) {
+            alert('Only the admin can pause or resume the game.');
+            return;
+        }
+        gameState.paused = !gameState.paused;
+        gameState.pauseReason = gameState.paused ? 'Paused by the admin.' : '';
+        if (!gameState.paused) updateActionDeadline();
+        logEvent(gameState.paused ? 'The game was paused.' : 'The game resumed.', gameState.paused ? 'warning' : 'success');
+        broadcastState();
+    }
+
+    function updatePlayerHand(playerId, field, value) {
+        if (myClientId !== gameState.adminId) return;
+        const player = findPlayerById(playerId);
+        if (!player) return;
+        if (field === 'handCategory') {
+            player.handCategory = HAND_STRENGTH[value] ? value : 'high-card';
+        }
+        if (field === 'handValue') {
+            player.handValue = Math.min(14, Math.max(2, Number(value) || 14));
+        }
+        broadcastState();
+    }
+
+    function kickPlayer(playerId) {
+        if (myClientId !== gameState.adminId) {
+            alert('Only the admin can remove players.');
+            return;
+        }
+        const player = findPlayerById(playerId);
+        if (!player) return;
+        if (!window.confirm(`Remove ${player.name} from the table?`)) return;
+        gameState.players = gameState.players.filter((entry) => entry.id !== playerId);
+        if (gameState.turnIndex >= gameState.players.length) gameState.turnIndex = 0;
+        ensureAdmin();
+        logEvent(`${player.name} was removed from the table.`, 'warning');
+        broadcastState();
+        if (playerId === myClientId) {
+            disconnectAndReturn();
+        }
+    }
+
+    function resetPlayerStats(playerId) {
+        if (myClientId !== gameState.adminId) {
+            alert('Only the admin can reset player stats.');
+            return;
+        }
+        const player = findPlayerById(playerId);
+        if (!player) return;
+        if (!window.confirm(`Reset wins, losses, and chip tracking for ${player.name}?`)) return;
+        player.wins = 0;
+        player.losses = 0;
+        player.totalWon = 0;
+        player.totalLost = 0;
+        logEvent(`${player.name}'s stats were reset.`, 'info');
+        broadcastState();
+    }
+
+    function exportSessionData() {
+        const data = {
+            roomCode,
+            exportedAt: new Date().toISOString(),
+            config: gameState.config,
+            players: gameState.players,
+            logs: gameState.logs,
+            handHistory: gameState.sessionHistory
+        };
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = `${roomCode || 'teen-patti'}-session.json`;
+        anchor.click();
+        URL.revokeObjectURL(url);
+        showToast('Session data exported.', 'success');
+    }
+
+    function sendChatMessage() {
+        const input = document.getElementById('chatInput');
+        const text = input.value.trim();
+        if (!text) return;
+        addChatMessage(text);
+        logEvent(`${myName} sent a table message.`, 'info');
+        input.value = '';
+        broadcastState();
+    }
+
+    function forceTimeoutFold() {
+        if (myClientId !== gameState.adminId || !gameState.handActive || gameState.paused || gameState.phaseIndex === PHASES.length - 1) {
+            return;
+        }
+        if (Date.now() < gameState.actionDeadline) return;
+        const currentPlayer = getCurrentPlayer();
+        if (!currentPlayer || !canPlayerAct(currentPlayer)) return;
+        currentPlayer.folded = true;
+        currentPlayer.actedThisPhase = true;
+        logEvent(`${currentPlayer.name} timed out and was auto-folded.`, 'warning');
+        gameState.sidePots = buildSidePots();
+        advanceTurnOrPhase();
+        broadcastState();
+    }
+
+    function countdownText() {
+        if (!gameState.handActive || gameState.paused || gameState.actionDeadline <= 0) return '--';
+        const remainingMs = gameState.actionDeadline - Date.now();
+        return `${Math.max(0, Math.ceil(remainingMs / 1000))}s`;
+    }
+
+    function syncAdminPanel() {
+        document.getElementById('adminBuyInInput').value = gameState.config.initialBuyIn;
+        document.getElementById('adminTurnTimerInput').value = gameState.config.turnSeconds;
+        document.getElementById('adminChipDenominationsInput').value = gameState.config.chipValues.join(',');
+        document.getElementById('adminHouseRulesInput').value = gameState.config.houseRules || '';
+        document.getElementById('adminSoundToggleInput').checked = gameState.config.soundEnabled;
+    }
+
+    function renderLogs() {
+        const container = document.getElementById('activityLog');
+        container.innerHTML = '';
+        if (!gameState.logs.length) {
+            container.innerHTML = '<div class="empty-state">No game actions yet.</div>';
+            return;
+        }
+        gameState.logs.slice().reverse().forEach((entry) => {
+            const item = document.createElement('div');
+            item.className = 'log-item';
+            item.innerHTML = `<div>${entry.message}</div><div class="log-time">${formatTime(entry.timestamp)}</div>`;
+            container.appendChild(item);
+        });
+    }
+
+    function renderChat() {
+        const container = document.getElementById('chatMessages');
+        container.innerHTML = '';
+        if (!gameState.chat.length) {
+            container.innerHTML = '<div class="empty-state">No chat yet.</div>';
+            return;
+        }
+        gameState.chat.slice().reverse().forEach((entry) => {
+            const item = document.createElement('div');
+            item.className = 'chat-item';
+            item.innerHTML = `<strong>${entry.author}</strong><div>${entry.text}</div><div class="chat-time">${formatTime(entry.timestamp)}</div>`;
+            container.appendChild(item);
+        });
+    }
+
+    function renderHistory() {
+        const container = document.getElementById('sessionHistory');
+        container.innerHTML = '';
+        if (!gameState.sessionHistory.length) {
+            container.innerHTML = '<div class="empty-state">No hands completed yet.</div>';
+            return;
+        }
+        gameState.sessionHistory.forEach((entry) => {
+            const item = document.createElement('div');
+            item.className = 'history-item';
+            item.innerHTML = `<strong>Hand #${entry.handNumber}</strong><div>${entry.summary}</div><div class="log-time">${formatTime(entry.timestamp)}</div>`;
+            container.appendChild(item);
+        });
+    }
+
+    function renderPlayers() {
+        const listContainer = document.getElementById('playerList');
+        listContainer.innerHTML = '';
+        const isAdmin = myClientId === gameState.adminId;
+        const currentPlayer = getCurrentPlayer();
+        const rankMap = getPlayerRankMap();
+
+        if (!gameState.players.length) {
+            listContainer.innerHTML = '<div class="empty-state">Players will appear here once they join the table.</div>';
+            return;
+        }
+
+        gameState.players.forEach((player, index) => {
+            const badge = document.createElement('div');
+            const wealthClass = player.wallet >= player.buyIn ? 'wealth-high' : (player.wallet >= Math.ceil(player.buyIn / 2) ? 'wealth-medium' : 'wealth-low');
+            badge.className = `player-badge ${wealthClass}${currentPlayer && index === gameState.turnIndex && gameState.handActive ? ' active-turn' : ''}`;
+
+            const statusTokens = [];
+            if (player.folded) statusTokens.push('<span class="status-chip status-folded">Folded</span>');
+            if (player.allIn) statusTokens.push('<span class="status-chip status-allin">All-in</span>');
+            if (!player.connected) statusTokens.push('<span class="status-chip status-disconnected">Disconnected</span>');
+            if (currentPlayer && currentPlayer.id === player.id && gameState.handActive && !gameState.paused && gameState.phaseIndex !== PHASES.length - 1) {
+                statusTokens.push('<span class="status-chip status-active">Current turn</span>');
+            }
+            if (!statusTokens.length) statusTokens.push('<span class="status-chip">Waiting</span>');
+
+            badge.innerHTML = `
+                <div class="player-top">
+                    <div>
+                        <div class="player-name">#${rankMap[player.id]} ${player.name}${player.id === myClientId ? ' (You)' : ''}</div>
+                        <div class="substats">💰 Wallet: €${player.wallet} &nbsp;|&nbsp; Pot Contribution: €${player.currentBet} &nbsp;|&nbsp; Wins: ${player.wins} &nbsp;|&nbsp; Win rate: ${calculateWinRate(player)}<br>📈 Chips Won: €${player.totalWon} &nbsp;|&nbsp; Chips Lost: €${player.totalLost}</div>
+                    </div>
+                    <div style="text-align:right;">${statusTokens.join(' ')}</div>
+                </div>
+            `;
+
+            if (isAdmin) {
+                const miniControls = document.createElement('div');
+                miniControls.className = 'mini-controls';
+                const resetBtn = document.createElement('button');
+                resetBtn.className = 'ghost-btn secondary-btn';
+                resetBtn.textContent = 'Reset Stats';
+                resetBtn.onclick = () => resetPlayerStats(player.id);
+
+                const kickBtn = document.createElement('button');
+                kickBtn.className = 'ghost-btn danger-btn';
+                kickBtn.textContent = 'Kick';
+                kickBtn.onclick = () => kickPlayer(player.id);
+
+                miniControls.appendChild(resetBtn);
+                if (player.id !== myClientId) miniControls.appendChild(kickBtn);
+                badge.appendChild(miniControls);
+
+                if (gameState.handActive && gameState.phaseIndex === PHASES.length - 1 && player.inHand && !player.folded) {
+                    const showdownGrid = document.createElement('div');
+                    showdownGrid.className = 'showdown-grid';
+                    showdownGrid.innerHTML = `
+                        <select aria-label="Hand category for ${player.name}">
+                            ${Object.entries(HAND_LABELS).map(([value, label]) => `<option value="${value}" ${player.handCategory === value ? 'selected' : ''}>${label}</option>`).join('')}
+                        </select>
+                        <input type="number" min="2" max="14" value="${player.handValue}" aria-label="Top card value for ${player.name}">
+                    `;
+                    const [select, input] = showdownGrid.querySelectorAll('select, input');
+                    select.onchange = (event) => updatePlayerHand(player.id, 'handCategory', event.target.value);
+                    input.onchange = (event) => updatePlayerHand(player.id, 'handValue', event.target.value);
+                    badge.appendChild(showdownGrid);
+                }
+            } else if (gameState.handActive && gameState.phaseIndex === PHASES.length - 1 && player.inHand && !player.folded) {
+                const showdownReadout = document.createElement('div');
+                showdownReadout.className = 'substats';
+                showdownReadout.textContent = `Showdown hand: ${HAND_LABELS[player.handCategory]} (${player.handValue})`;
+                badge.appendChild(showdownReadout);
+            }
+
+            listContainer.appendChild(badge);
+        });
+    }
+
+    function updateGameUI() {
+        gameState = sanitizeState(gameState);
+        renderBetTabs();
+        document.getElementById('potValue').textContent = gameState.pot;
+        document.getElementById('minimumBetValue').textContent = `€${gameState.minimumBet}`;
+        document.getElementById('countdownValue').textContent = countdownText();
+        document.getElementById('handNumberValue').textContent = String(gameState.handNumber);
+        document.getElementById('houseRulesDisplay').textContent = gameState.config.houseRules || 'No house rules configured yet.';
+
+        const isAdmin = myClientId === gameState.adminId;
+        document.getElementById('adminBadge').classList.toggle('hidden', !isAdmin);
+        document.getElementById('adminPanel').classList.toggle('hidden', !isAdmin);
+        document.getElementById('pausePill').classList.toggle('hidden', !gameState.paused);
+        document.getElementById('togglePauseBtn').textContent = gameState.paused ? 'Resume Game' : 'Pause Game';
+        if (isAdmin) syncAdminPanel();
+
+        const currentPlayer = getCurrentPlayer();
+        const selectedBetLabel = `Selected chaal: €${currentSelectedBet} • Blind limit: ${gameState.config.blindLimit}`;
+        document.getElementById('actionHint').textContent = selectedBetLabel;
+
+        let phaseTitle = gameState.handActive ? PHASES[gameState.phaseIndex] : 'Pre-game';
+        if (gameState.paused) phaseTitle += ' • Paused';
+        document.getElementById('phaseIndicator').textContent = phaseTitle;
+
+        if (!gameState.handActive) {
+            document.getElementById('turnIndicator').textContent = 'Waiting for the admin to start the next hand.';
+            document.getElementById('actionPad').classList.add('hidden');
+        } else if (gameState.paused) {
+            document.getElementById('turnIndicator').textContent = gameState.pauseReason || 'The hand is paused.';
+            document.getElementById('actionPad').classList.add('hidden');
+        } else if (gameState.phaseIndex === PHASES.length - 1) {
+            document.getElementById('turnIndicator').textContent = 'Showdown is ready. Admin can resolve the winning hand.';
+            document.getElementById('actionPad').classList.add('hidden');
+        } else if (currentPlayer && currentPlayer.id === myClientId) {
+            document.getElementById('turnIndicator').textContent = `Your turn — act before the timer expires (${countdownText()}).`;
+            document.getElementById('actionPad').classList.remove('hidden');
+        } else if (currentPlayer) {
+            document.getElementById('turnIndicator').textContent = `Waiting for ${currentPlayer.name} (${countdownText()}).`;
+            document.getElementById('actionPad').classList.add('hidden');
+        }
+
+        const isMyTurn = Boolean(currentPlayer && currentPlayer.id === myClientId && gameState.handActive && !gameState.paused && gameState.phaseIndex !== PHASES.length - 1);
+        const myPlayer = findPlayerById(myClientId);
+        const blindCost = gameState.config.chipValues[0];
+        document.getElementById('blindActionBtn').disabled = !isMyTurn || !myPlayer || myPlayer.wallet < blindCost || myPlayer.blindsCount >= gameState.config.blindLimit;
+        document.getElementById('chaalActionBtn').disabled = !isMyTurn || !myPlayer || myPlayer.wallet < currentSelectedBet;
+        document.getElementById('allInActionBtn').disabled = !isMyTurn || !myPlayer || myPlayer.wallet <= 0;
+        document.getElementById('foldActionBtn').disabled = !isMyTurn;
+
+        const sidePotSummary = document.getElementById('sidePotSummary');
+        if (!gameState.sidePots.length) {
+            sidePotSummary.textContent = 'No side pots';
+            sidePotSummary.className = 'pill info';
+        } else {
+            sidePotSummary.textContent = gameState.sidePots.map((pot, index) => `P${index + 1}: €${pot.amount}`).join(' • ');
+            sidePotSummary.className = 'pill warning';
+        }
+
+        renderPlayers();
+        renderLogs();
+        renderChat();
+        renderHistory();
+        saveRoomSnapshot();
+    }
+
+    function beginCountdownLoop() {
+        clearInterval(countdownInterval);
+        countdownInterval = setInterval(() => {
+            document.getElementById('countdownValue').textContent = countdownText();
+            if (gameState.handActive && !gameState.paused && gameState.phaseIndex !== PHASES.length - 1) {
+                const currentPlayer = getCurrentPlayer();
+                if (currentPlayer && currentPlayer.id === myClientId) {
+                    document.getElementById('turnIndicator').textContent = `Your turn — act before the timer expires (${countdownText()}).`;
+                } else if (currentPlayer) {
+                    document.getElementById('turnIndicator').textContent = `Waiting for ${currentPlayer.name} (${countdownText()}).`;
+                }
+            }
+            forceTimeoutFold();
+        }, 1000);
+    }
+
+    hydrateSetupFromPreferences();
+    beginCountdownLoop();
     updateGameUI();
 </script>
-
 </body>
 </html>
