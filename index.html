@@ -303,6 +303,10 @@
             return;
         }
         const coins = Number(trimmedInput);
+        if(coins <= 0) {
+            alert("Enter a valid positive coin amount.");
+            return;
+        }
 
         player.wallet += coins;
         broadcastState();
