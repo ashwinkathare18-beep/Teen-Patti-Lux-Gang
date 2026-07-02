@@ -417,7 +417,7 @@
                 const blindLockedByRaisedChaal = gameState.currentChaal > BET_OPTIONS[0];
                 blindBtn.disabled = (currentPlayer.blindsCount || 0) >= MAX_BLINDS_PER_HAND || blindLockedByRaisedChaal;
                 blindBtn.title = blindLockedByRaisedChaal
-                    ? 'Blind is locked after the chal has been raised.'
+                    ? 'Blind is locked after the chaal has been raised.'
                     : (currentPlayer.blindsCount >= MAX_BLINDS_PER_HAND ? 'Blind limit reached (max 2 per hand)' : '');
             } else {
                 document.getElementById('turnIndicator').innerText = `⏳ Pending turn: ${currentPlayer.name}`;
