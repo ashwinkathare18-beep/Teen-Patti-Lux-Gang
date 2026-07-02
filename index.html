@@ -58,7 +58,7 @@
     <!-- SECTION 2: LIVE GAMEBOARD -->
     <div id="gameScreen" class="hidden">
         <div class="card" style="padding: 10px 20px;">
-            <h3 style="margin: 0; text-align: left; font-size:14px; color:#94a3b8;">Table Code: <span id="displayTableCode" style="color:#fff;"></span> <span id="adminBadge" style="color:#fbbf24; margin-left:10px; font-size:12px; display:none;">(★ You are Admin)</span></h3>
+            <h3 style="margin: 0; text-align: left; font-size:14px; color:#94a3b8;">Table Code: <span id="displayTableCode" style="color:#fff;"></span> <span id="adminBadge" style="color:#fbbf24; display:none;">👑 ADMIN</span></h3>
         </div>
 
         <!-- NEW PENDING TURN DISPLAY -->
@@ -99,8 +99,8 @@
 
 <script>
     // --- CONFIGURATION ---
-    // Update this with your working Ably key to instantly activate syncing across networks
-    const ABLY_API_KEY = 'YOUR_ABLY_API_KEY_HERE'; 
+    // Your Ably ROOT API Key for full access
+    const ABLY_API_KEY = 'fnVQhw.H7cEiA:Ipz3KJ6W9-CCUl4qGuYTTSA-rkCk5gBoFZfIeDUdrQQ'; 
 
     let ably, channel;
     let roomCode = "";
@@ -128,43 +128,42 @@
 
         myClientId = 'id_' + Math.random().toString(36).substr(2, 9);
 
-        if(ABLY_API_KEY === 'YOUR_ABLY_API_KEY_HERE') {
-            alert("Please update the ABLY_API_KEY variable inside the script source to enable multiplayer capability.");
-            return;
+        try {
+            ably = new Ably.Realtime({ key: ABLY_API_KEY, clientId: myClientId });
+            channel = ably.channels.get('teen-patti-' + roomCode);
+
+            channel.subscribe('stateUpdate', (message) => {
+                gameState = message.data;
+                updateGameUI();
+            });
+
+            channel.presence.subscribe('enter', (member) => {
+                if(myClientId === gameState.adminId) { 
+                    syncJoiner(member.clientId, member.data.name);
+                }
+            });
+
+            channel.presence.enter({ name: myName });
+
+            channel.presence.get((err, members) => {
+                if(!err && gameState.players.length === 0) {
+                    // First client inside this code room claims Admin privileges
+                    gameState.adminId = myClientId; 
+                    members.forEach(m => {
+                        if(!gameState.players.find(p => p.id === m.clientId)) {
+                            gameState.players.push({ id: m.clientId, name: m.data.name, wallet: 200, blindsCount: 0, folded: false, wins: 0, losses: 0 });
+                        }
+                    });
+                    broadcastState();
+                }
+            });
+
+            document.getElementById('setupScreen').classList.add('hidden');
+            document.getElementById('displayTableCode').innerText = roomCode;
+            document.getElementById('gameScreen').classList.remove('hidden');
+        } catch(e) {
+            alert("Connection error: " + e.message);
         }
-
-        ably = new Ably.Realtime({ key: ABLY_API_KEY, clientId: myClientId });
-        channel = ably.channels.get('teen-patti-' + roomCode);
-
-        channel.subscribe('stateUpdate', (message) => {
-            gameState = message.data;
-            updateGameUI();
-        });
-
-        channel.presence.subscribe('enter', (member) => {
-            if(myClientId === gameState.adminId) { 
-                syncJoiner(member.clientId, member.data.name);
-            }
-        });
-
-        channel.presence.enter({ name: myName });
-
-        channel.presence.get((err, members) => {
-            if(!err && gameState.players.length === 0) {
-                // First client inside this code room claims Admin privileges
-                gameState.adminId = myClientId; 
-                members.forEach(m => {
-                    if(!gameState.players.find(p => p.id === m.clientId)) {
-                        gameState.players.push({ id: m.clientId, name: m.data.name, wallet: 200, blindsCount: 0, folded: false, wins: 0, losses: 0 });
-                    }
-                });
-                broadcastState();
-            }
-        });
-
-        document.getElementById('setupScreen').classList.add('hidden');
-        document.getElementById('displayTableCode').innerText = roomCode;
-        document.getElementById('gameScreen').classList.remove('hidden');
     }
 
     function syncJoiner(id, name) {
