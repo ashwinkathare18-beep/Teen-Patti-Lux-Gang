@@ -3,10 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>Live Teen Patti Companion Pro</title>
-    <!-- Include Ably Realtime SDK for syncing moves instantly across phones -->
     <script src="https://cdn.ably.com/lib/ably.min-1.js"></script>
-    <!-- Include SheetJS library for generating physical Excel files entirely client-side -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 15px; }
@@ -21,15 +22,12 @@
         button.blind-btn { background: #d97706; }
         button.chaal-btn { background: #059669; }
         button.fold-btn { background: #dc2626; }
-        button.logout-btn { background: #dc2626; width: auto; padding: 8px 16px; font-size: 14px; margin-top: 10px; }
         
-        /* Bet Size Tabs styling */
         .bet-tabs { display: flex; gap: 8px; margin-bottom: 12px; }
         .bet-tab { background: #334155; border: 2px solid #475569; padding: 10px; border-radius: 8px; font-weight: bold; text-align: center; flex: 1; cursor: pointer; transition: all 0.2s; }
         .bet-tab.selected { background: #2563eb; border-color: #3b82f6; color: #fff; transform: scale(1.03); }
         .bet-tab.disabled-tab { opacity: 0.15; cursor: not-allowed; background: #0f172a; border-color: #1e293b; color: #475569; }
         
-        /* Players list layout modifications */
         .player-badge { display: flex; justify-content: space-between; padding: 12px; background: #334155; border-radius: 6px; margin-bottom: 8px; align-items: center; border: 2px solid transparent; }
         .active-turn { border: 2px solid #fbbf24; background: #1e3a8a; }
         .history-text { font-size: 11px; color: #94a3b8; margin-top: 4px; font-family: monospace; }
@@ -42,7 +40,6 @@
         .badge-left { display: flex; flex-direction: column; }
         .controls-right { display: flex; flex-direction: column; align-items: flex-end; }
 
-        /* GIANT MEGA POPUP OVERLAY SYSTEM */
         .mega-popup-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.98); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; padding: 20px; }
         .mega-winner-title { font-size: 32px; color: #fbbf24; text-transform: uppercase; letter-spacing: 3px; font-weight: 800; margin-bottom: 10px; }
         .mega-winner-name { font-size: 80px; font-weight: 900; color: #ffffff; text-shadow: 0 0 40px rgba(251,191,36,0.7); margin: 25px 0; text-transform: uppercase; word-wrap: break-word; max-width: 100%; }
@@ -59,7 +56,7 @@
 <div class="container">
     <h1>♠ Teen Patti Companion ♠</h1>
 
-    <!-- SECTION 1: JOIN/CREATE ROOM -->
+    <!-- LOGIN SCREEN - ALWAYS SHOWN FIRST -->
     <div id="setupScreen" class="card">
         <h2>Join a Table</h2>
         <div class="input-group">
@@ -73,7 +70,7 @@
         <button onclick="connectToTable()">Enter Table</button>
     </div>
 
-    <!-- SECTION 2: LIVE GAMEBOARD -->
+    <!-- GAME SCREEN - HIDDEN BY DEFAULT -->
     <div id="gameScreen" class="hidden">
         <div class="card" style="padding: 10px 20px;">
             <div class="header-bar">
@@ -82,7 +79,6 @@
             </div>
         </div>
 
-        <!-- PENDING TURN DISPLAY -->
         <div class="status-bar" id="turnIndicator">Waiting for game initiation...</div>
         <br>
 
@@ -92,7 +88,6 @@
             <div id="minChaalNotice" style="text-align: center; margin-top: 8px; font-size: 13px; color: #cbd5e1; font-weight: 500;">Minimum Chaal Requirement: €2</div>
         </div>
 
-        <!-- ACTION PAD -->
         <div id="actionPad" class="card">
             <h3>Your Turn Actions</h3>
             <label style="display:block; margin-bottom: 6px; font-size: 14px; color: #cbd5e1;">Select Chaal Amount:</label>
@@ -110,19 +105,17 @@
             </div>
         </div>
 
-        <!-- PLAYER ROSTER WITH WIN LOGS AND ADMIN PAYOUT CONTROLS -->
         <div class="card">
             <h3>Players & History</h3>
             <div id="playerList"></div>
             
-            <!-- ADMIN TOOLS BLOCK -->
             <button id="startHandBtn" style="background:#7c3aed; margin-top:15px; display:none;" onclick="hostResetHand()">♥ Start Next Hand ♥</button>
             <button id="downloadExcelBtn" style="background:#0284c7; margin-top:8px; display:none;" onclick="exportToExcel()">📊 Download Excel Summary</button>
         </div>
     </div>
 </div>
 
-<!-- EXTRA LARGE WINNER SCREEN OVERLAY -->
+<!-- GIANT WINNER POPUP -->
 <div id="giantWinnerPopup" class="mega-popup-overlay hidden">
     <div style="font-size: 100px; margin-bottom: 10px;">🏆</div>
     <div class="mega-winner-title">ROUND WINNER</div>
@@ -132,7 +125,27 @@
 </div>
 
 <script>
-    // --- CONFIGURATION ---
+    // FORCE CLEAR ALL STORAGE ON PAGE LOAD
+    window.addEventListener('DOMContentLoaded', function() {
+        // Clear all possible storage mechanisms
+        localStorage.clear();
+        sessionStorage.clear();
+        
+        // Delete all cookies
+        document.cookie.split(";").forEach(function(c) { 
+            document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+        });
+        
+        // Ensure setup screen is visible
+        document.getElementById('setupScreen').classList.remove('hidden');
+        document.getElementById('gameScreen').classList.add('hidden');
+        
+        // Clear input fields
+        document.getElementById('playerNameInput').value = '';
+        document.getElementById('tableCodeInput').value = '';
+    });
+
+    // CONFIGURATION
     const ABLY_API_KEY = 'fnVQhw.H7cEiA:Ipz3KJ6W9-CCUl4qGuYTTSA-rkCk5gBoFZfIeDUdrQQ'; 
 
     let ably, channel;
@@ -141,28 +154,15 @@
     let myName = "";
     let currentSelectedBet = 2; 
     
-    // --- GAME ENGINE STATE ---
+    // GAME ENGINE STATE
     let gameState = {
         adminId: "",       
-        players: [],       // Array of { id, name, wallet: 0 (Default), blindsCount, folded, wins, losses }
+        players: [],
         pot: 0,
         turnIndex: 0,
         handActive: false,
         minimumRequiredChaal: 2 
     };
-
-    // INITIALIZE ON PAGE LOAD - CHECK IF SESSION EXISTS
-    window.addEventListener('load', function() {
-        // Clear any stale browser cache
-        if (performance.navigation.type === 1) {
-            // Page was refreshed
-            localStorage.clear();
-            sessionStorage.clear();
-        }
-        // Always show setup screen on load
-        document.getElementById('setupScreen').classList.remove('hidden');
-        document.getElementById('gameScreen').classList.add('hidden');
-    });
 
     function connectToTable() {
         myName = document.getElementById('playerNameInput').value.trim();
@@ -217,13 +217,12 @@
     }
 
     function logoutPlayer() {
-        if(confirm("Are you sure you want to logout? The game session will continue without you.")) {
-            // Leave presence
+        if(confirm("Are you sure you want to logout?")) {
             if(channel && channel.presence) {
                 channel.presence.leave();
             }
             
-            // Reset all state
+            // NUCLEAR CLEAR - RESET EVERYTHING
             ably = null;
             channel = null;
             roomCode = "";
@@ -238,15 +237,20 @@
                 minimumRequiredChaal: 2
             };
             
-            // Clear storage
+            // CLEAR ALL STORAGE
             localStorage.clear();
             sessionStorage.clear();
             
-            // Show setup screen
+            // CLEAR INPUTS
             document.getElementById('playerNameInput').value = "";
             document.getElementById('tableCodeInput').value = "";
+            
+            // SHOW SETUP SCREEN
             document.getElementById('setupScreen').classList.remove('hidden');
             document.getElementById('gameScreen').classList.add('hidden');
+            
+            // RELOAD PAGE TO ENSURE CLEAN STATE
+            window.location.reload(true);
         }
     }
 
@@ -269,7 +273,9 @@
     }
 
     function broadcastState() {
-        channel.publish('stateUpdate', gameState);
+        if(channel) {
+            channel.publish('stateUpdate', gameState);
+        }
     }
 
     function updateGameUI() {
@@ -291,7 +297,6 @@
 
         let activePlayerObj = gameState.players[gameState.turnIndex];
 
-        // RENDER TURN PENDING HEADER
         if(gameState.handActive && activePlayerObj) {
             document.getElementById('turnIndicator').innerText = `PENDING TURN: ${activePlayerObj.name.toUpperCase()}`;
             document.getElementById('turnIndicator').style.color = (activePlayerObj.id === myClientId) ? "#fbbf24" : "#a7f3d0";
@@ -300,11 +305,9 @@
             document.getElementById('turnIndicator').style.color = "#94a3b8";
         }
 
-        // CALCULATE BLIND COSTS (Blind value is always half of current Chaal floor)
         let blindCost = gameState.minimumRequiredChaal / 2;
         document.getElementById('blindActionBtn').innerText = `Blind (€${blindCost})`;
 
-        // UPDATE TAB STYLING BASED ON ESCALATED FLOOR VALUE
         for(let i=2; i<=5; i++) {
             let el = document.getElementById(`tab-${i}`);
             if(i < gameState.minimumRequiredChaal) {
@@ -315,12 +318,10 @@
             }
         }
 
-        // Auto-correct active tab selection selection if floor over-runs it
         if(currentSelectedBet < gameState.minimumRequiredChaal) {
             currentSelectedBet = gameState.minimumRequiredChaal;
         }
         
-        // Re-render selected tab highlight state safely
         for(let i=2; i<=5; i++) {
             let el = document.getElementById(`tab-${i}`);
             if(i === currentSelectedBet && i >= gameState.minimumRequiredChaal) {
@@ -328,7 +329,6 @@
             }
         }
 
-        // RENDER ROSTER ROWS
         gameState.players.forEach((p) => {
             const isCurrent = (gameState.handActive && activePlayerObj && activePlayerObj.id === p.id);
             const statusLabel = p.folded ? "FOLDED" : (p.blindsCount < 2 ? `Blinds left: ${2 - p.blindsCount}` : "Chaal Only");
@@ -364,12 +364,10 @@
             listContainer.appendChild(div);
         });
 
-        // ENFORCE LOCK SEPARATION AT DOM COMPILATION RUN TIME
         if(gameState.handActive && activePlayerObj && activePlayerObj.id === myClientId) {
             document.getElementById('actionPad').style.opacity = "1";
             document.getElementById('actionPad').style.pointerEvents = "auto";
             
-            // Disable Blind button completely if player has hit 2 blinds OR if Chaal floor has changed
             document.getElementById('blindActionBtn').disabled = (activePlayerObj.blindsCount >= 2 || gameState.minimumRequiredChaal > 2);
             document.getElementById('chaalActionBtn').disabled = false;
         } else {
