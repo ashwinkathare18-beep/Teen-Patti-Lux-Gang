@@ -27,14 +27,19 @@
         .bet-tab.selected { background: #2563eb; border-color: #3b82f6; color: #fff; transform: scale(1.03); }
         
         /* Players list layout modifications */
-        .player-badge { display: flex; justify-content: space-between; padding: 12px; background: #334155; border-radius: 6px; margin-bottom: 8px; align-items: center; border: 2px solid transparent; }
+        .player-badge { display: flex; justify-content: space-between; padding: 12px; background: #334155; border-radius: 6px; margin-bottom: 8px; align-items: center; border: 2px solid transparent; gap: 12px; }
         .active-turn { border: 2px solid #fbbf24; background: #1e3a8a; }
         .history-text { font-size: 11px; color: #94a3b8; margin-top: 4px; font-family: monospace; }
         .status-bar { text-align: center; color: #94a3b8; font-weight: bold; font-size: 16px; margin-top: 5px; background: #1e293b; padding: 10px; border-radius: 6px; border: 1px solid #475569; }
         .hidden { display: none; }
         .flex-row { display: flex; gap: 10px; margin-top: 10px; }
         .admin-crown-btn { background: #fbbf24; color: #000; font-size: 12px; padding: 6px 10px; width: auto; border-radius: 4px; }
-        .badge-left { display: flex; flex-direction: column; }
+        .badge-left { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+        .player-name { font-weight: bold; font-size: 16px; }
+        .player-balance { font-size: 18px; font-weight: bold; color: #4ade80; }
+        .player-meta { font-size: 12px; color: #cbd5e1; }
+        .player-status { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; font-size: 12px; }
+        .blind-helper { margin-top: 10px; font-size: 13px; color: #cbd5e1; text-align: center; }
     </style>
 </head>
 <body>
@@ -87,6 +92,7 @@
                 <button id="chaalActionBtn" class="chaal-btn" onclick="submitMove('Chaal')">Chaal</button>
                 <button class="fold-btn" onclick="submitMove('Fold')">Fold</button>
             </div>
+            <div id="blindStatus" class="blind-helper">Blind: €1 each · Max 2 per hand</div>
         </div>
 
         <!-- PLAYER ROSTER WITH WIN LOGS AND ADMIN PAYOUT CONTROLS -->
@@ -109,6 +115,9 @@
     let myClientId = "";
     let myName = "";
     let currentSelectedBet = 2; // Default tab choice
+    const INITIAL_WALLET = 200;
+    const BLIND_AMOUNT = 1;
+    const MAX_BLINDS_PER_HAND = 2;
     
     // --- GAME ENGINE STATE ---
     let gameState = {
@@ -118,6 +127,10 @@
         turnIndex: 0,
         handActive: false
     };
+
+    function createPlayer(id, name) {
+        return { id, name, wallet: INITIAL_WALLET, blindsCount: 0, folded: false, wins: 0, losses: 0 };
+    }
 
     function connectToTable() {
         myName = document.getElementById('playerNameInput').value.trim();
@@ -153,7 +166,7 @@
                 gameState.adminId = myClientId; 
                 members.forEach(m => {
                     if(!gameState.players.find(p => p.id === m.clientId)) {
-                        gameState.players.push({ id: m.clientId, name: m.data.name, wallet: 200, blindsCount: 0, folded: false, wins: 0, losses: 0 });
+                        gameState.players.push(createPlayer(m.clientId, m.data.name));
                     }
                 });
                 broadcastState();
@@ -167,7 +180,7 @@
 
     function syncJoiner(id, name) {
         if(!gameState.players.find(p => p.id === id)) {
-            gameState.players.push({ id: id, name: name, wallet: 200, blindsCount: 0, folded: false, wins: 0, losses: 0 });
+            gameState.players.push(createPlayer(id, name));
             broadcastState();
         }
     }
@@ -206,26 +219,30 @@
             leftDiv.className = 'badge-left';
             
             const nameSpan = document.createElement('span');
+            nameSpan.className = 'player-name';
             nameSpan.innerText = player.name;
-            nameSpan.style.fontWeight = 'bold';
+
+            const balanceSpan = document.createElement('span');
+            balanceSpan.className = 'player-balance';
+            balanceSpan.innerText = `Balance: €${player.wallet}`;
             
             const statsSpan = document.createElement('span');
-            statsSpan.innerText = `💰 €${player.wallet} | 🎯 W:${player.wins} L:${player.losses}`;
-            statsSpan.style.fontSize = '12px';
-            statsSpan.style.color = '#cbd5e1';
+            statsSpan.className = 'player-meta';
+            statsSpan.innerText = `🎯 W:${player.wins} L:${player.losses} • Blind ${player.blindsCount || 0}/${MAX_BLINDS_PER_HAND}`;
             
             leftDiv.appendChild(nameSpan);
+            leftDiv.appendChild(balanceSpan);
             leftDiv.appendChild(statsSpan);
             
             const rightDiv = document.createElement('div');
-            rightDiv.style.textAlign = 'right';
+            rightDiv.className = 'player-status';
             
             const statusSpan = document.createElement('span');
             if(player.folded) {
                 statusSpan.innerText = '❌ FOLDED';
                 statusSpan.style.color = '#ef4444';
             } else if(index === gameState.turnIndex && gameState.handActive) {
-                statusSpan.innerText = '⏳ YOUR TURN';
+                statusSpan.innerText = '⏳ ACTIVE TURN';
                 statusSpan.style.color = '#fbbf24';
                 statusSpan.style.fontWeight = 'bold';
             } else {
@@ -254,10 +271,14 @@
             if(currentPlayer.id === myClientId) {
                 document.getElementById('turnIndicator').innerText = '🎪 Your Turn! Make a move...';
                 document.getElementById('actionPad').classList.remove('hidden');
-                // Disable Blind button once the player has used their 2 blind allowance
                 const blindBtn = document.getElementById('blindActionBtn');
-                blindBtn.disabled = (currentPlayer.blindsCount || 0) >= 2;
-                blindBtn.title = currentPlayer.blindsCount >= 2 ? 'Blind limit reached (max 2 per hand)' : '';
+                const blindStatus = document.getElementById('blindStatus');
+                const blindsUsed = currentPlayer.blindsCount || 0;
+                const blindsRemaining = Math.max(0, MAX_BLINDS_PER_HAND - blindsUsed);
+                blindBtn.innerText = `Blind (€${BLIND_AMOUNT})`;
+                blindBtn.disabled = blindsUsed >= MAX_BLINDS_PER_HAND;
+                blindBtn.title = blindBtn.disabled ? `Blind limit reached (max ${MAX_BLINDS_PER_HAND} per hand)` : `Blind costs €${BLIND_AMOUNT}. ${blindsRemaining} remaining this hand.`;
+                blindStatus.innerText = `Blind: €${BLIND_AMOUNT} each · Remaining: ${blindsRemaining}/${MAX_BLINDS_PER_HAND}`;
             } else {
                 document.getElementById('turnIndicator').innerText = `⏳ Waiting for ${currentPlayer.name}'s move...`;
                 document.getElementById('actionPad').classList.add('hidden');
@@ -276,13 +297,13 @@
         }
 
         if(moveType === 'Blind') {
-            if((currentPlayer.blindsCount || 0) >= 2) {
-                alert("You have already played 2 blinds this hand. You must Chaal or Fold.");
+            if((currentPlayer.blindsCount || 0) >= MAX_BLINDS_PER_HAND) {
+                alert(`You have already played ${MAX_BLINDS_PER_HAND} blinds this hand. You must Chaal or Fold.`);
                 return;
             }
             currentPlayer.blindsCount = (currentPlayer.blindsCount || 0) + 1;
-            currentPlayer.wallet -= 1;
-            gameState.pot += 1;
+            currentPlayer.wallet -= BLIND_AMOUNT;
+            gameState.pot += BLIND_AMOUNT;
         } else if(moveType === 'Chaal') {
             currentPlayer.wallet -= currentSelectedBet;
             gameState.pot += currentSelectedBet;
