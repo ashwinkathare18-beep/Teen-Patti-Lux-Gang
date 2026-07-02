@@ -25,7 +25,7 @@
         .bet-tabs { display: flex; gap: 8px; margin-bottom: 12px; }
         .bet-tab { background: #334155; border: 2px solid #475569; padding: 10px; border-radius: 8px; font-weight: bold; text-align: center; flex: 1; cursor: pointer; transition: all 0.2s; }
         .bet-tab.selected { background: #2563eb; border-color: #3b82f6; color: #fff; transform: scale(1.03); }
-        .bet-tab.disabled { opacity: 0.45; cursor: not-allowed; }
+        .bet-tab.disabled { opacity: 0.45; cursor: not-allowed; pointer-events: none; }
         
         /* Players list layout modifications */
         .player-badge { display: flex; justify-content: space-between; padding: 12px; background: #334155; border-radius: 6px; margin-bottom: 8px; align-items: center; border: 2px solid transparent; }
@@ -194,6 +194,10 @@
         return gameState.turnIndex;
     }
 
+    function isChaalRaised() {
+        return gameState.currentChaal > BET_OPTIONS[0];
+    }
+
     function refreshBetTabs() {
         const minimumChaal = gameState.currentChaal || BET_OPTIONS[0];
         if(currentSelectedBet < minimumChaal) {
@@ -293,11 +297,12 @@
         const input = prompt(`Enter coins bought for ${player.name}:`, '10');
         if(input === null) return;
 
-        const coins = Number(input);
-        if(!Number.isInteger(coins) || coins <= 0) {
+        const trimmedInput = input.trim();
+        if(!/^\d+$/.test(trimmedInput)) {
             alert("Enter a valid positive coin amount.");
             return;
         }
+        const coins = Number(trimmedInput);
 
         player.wallet += coins;
         broadcastState();
@@ -345,7 +350,7 @@
             const historySpan = document.createElement('span');
             historySpan.className = 'history-text';
             historySpan.innerText = player.history && player.history.length
-                ? `History: ${player.history.join(' • ')}`
+                ? `History: ${player.history.join(', ')}`
                 : 'History: No results yet';
             
             leftDiv.appendChild(nameSpan);
@@ -414,7 +419,7 @@
                 document.getElementById('actionPad').classList.remove('hidden');
                 // Disable Blind button once the player has used their 2 blind allowance
                 const blindBtn = document.getElementById('blindActionBtn');
-                const blindLockedByRaisedChaal = gameState.currentChaal > BET_OPTIONS[0];
+                const blindLockedByRaisedChaal = isChaalRaised();
                 blindBtn.disabled = (currentPlayer.blindsCount || 0) >= MAX_BLINDS_PER_HAND || blindLockedByRaisedChaal;
                 blindBtn.title = blindLockedByRaisedChaal
                     ? 'Blind is locked after the chaal has been raised.'
@@ -445,8 +450,8 @@
                 alert("You have already played 2 blinds this hand. You must Chaal or Fold.");
                 return;
             }
-            if(gameState.currentChaal > BET_OPTIONS[0]) {
-                alert(`Blind is locked. You must match at least €${gameState.currentChaal} or raise the chaal.`);
+            if(isChaalRaised()) {
+                alert(`Blind is locked. Please Chaal to match €${gameState.currentChaal} or Fold.`);
                 return;
             }
             if(currentPlayer.wallet < 1) {
