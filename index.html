@@ -446,7 +446,7 @@
                 return;
             }
             if(gameState.currentChaal > BET_OPTIONS[0]) {
-                alert(`Blind is locked. You must match at least €${gameState.currentChaal} or fold.`);
+                alert(`Blind is locked. You must match at least €${gameState.currentChaal} or raise the chaal.`);
                 return;
             }
             if(currentPlayer.wallet < 1) {
@@ -462,7 +462,7 @@
                 return;
             }
             if(currentPlayer.wallet < currentSelectedBet) {
-                alert("You need to buy more coins from the dealer before matching this chal.");
+                alert("You need to buy more coins from the dealer before matching this chaal.");
                 return;
             }
             currentPlayer.wallet -= currentSelectedBet;
