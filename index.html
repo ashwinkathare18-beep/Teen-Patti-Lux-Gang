@@ -288,8 +288,7 @@
 
         if(moveType === 'Blind') {
             if(currentPlayer.wallet < MIN_COINS_TO_START_HAND) {
-                const blindCoinsNeeded = MIN_COINS_TO_START_HAND;
-                alert(`You need to buy at least ${blindCoinsNeeded} ${blindCoinsNeeded === 1 ? 'coin' : 'coins'} from the dealer before playing blind.`);
+                alert(`You need to buy at least ${MIN_COINS_TO_START_HAND} ${MIN_COINS_TO_START_HAND === 1 ? 'coin' : 'coins'} from the dealer before playing blind.`);
                 return;
             }
             if((currentPlayer.blindsCount || 0) >= 2) {
@@ -343,7 +342,12 @@
         const player = gameState.players.find(p => p.id === playerId);
         if(!player) return;
 
-        const amount = Number(prompt(`Enter coins purchased for ${player.name}:`, '100'));
+        const promptValue = prompt(`Enter coins purchased for ${player.name}:`, '100');
+        if(promptValue === null) {
+            return;
+        }
+
+        const amount = Number(promptValue);
         if(!Number.isInteger(amount) || amount <= 0) {
             alert("Enter a valid whole coin amount greater than 0.");
             return;
