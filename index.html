@@ -255,7 +255,7 @@
         <div class="input-group">
             <label for="ablyKeyInput">Ably API Key</label>
             <input type="password" id="ablyKeyInput" placeholder="Paste your runtime key here">
-            <div class="help-text">The key is stored in your browser's localStorage so credentials are not hard-coded in the page.</div>
+            <div class="help-text">The key is stored in your browser's localStorage so credentials are not hard-coded in the page. Use a restricted Ably key with only the capabilities this table needs.</div>
         </div>
 
         <div class="grid-3">
@@ -435,6 +435,11 @@
     const LOCAL_STORAGE_KEY = 'teen-patti-preferences-v3';
     const ROOM_SNAPSHOT_PREFIX = 'teen-patti-room-';
     const PHASES = ['Betting Round 1', 'Betting Round 2', 'Betting Round 3', 'Showdown'];
+    const MAX_LOGS = 80;
+    const MAX_CHAT_MESSAGES = 80;
+    const MAX_HISTORY_ENTRIES = 50;
+    const NOTIFICATION_VOLUME = 0.02;
+    const TIMEOUT_GRACE_PERIOD_MS = 2000;
     const HAND_STRENGTH = {
         'high-card': 1,
         'pair': 2,
@@ -590,9 +595,9 @@
         next.handNumber = Math.max(0, Number(source.handNumber) || 0);
         next.minimumBet = Math.max(next.config.chipValues[0], Number(source.minimumBet) || next.config.chipValues[0]);
         next.actionDeadline = Math.max(0, Number(source.actionDeadline) || 0);
-        next.logs = Array.isArray(source.logs) ? source.logs.slice(-80) : [];
-        next.chat = Array.isArray(source.chat) ? source.chat.slice(-80) : [];
-        next.sessionHistory = Array.isArray(source.sessionHistory) ? source.sessionHistory.slice(-50) : [];
+        next.logs = Array.isArray(source.logs) ? source.logs.slice(-MAX_LOGS) : [];
+        next.chat = Array.isArray(source.chat) ? source.chat.slice(-MAX_CHAT_MESSAGES) : [];
+        next.sessionHistory = Array.isArray(source.sessionHistory) ? source.sessionHistory.slice(-MAX_HISTORY_ENTRIES) : [];
         next.lastUpdated = Math.max(Date.now(), Number(source.lastUpdated) || Date.now());
         if (!next.players.length) {
             next.turnIndex = 0;
@@ -669,7 +674,7 @@
             const gain = audioContext.createGain();
             oscillator.type = 'triangle';
             oscillator.frequency.value = 660;
-            gain.gain.value = 0.02;
+            gain.gain.value = NOTIFICATION_VOLUME;
             oscillator.connect(gain);
             gain.connect(audioContext.destination);
             oscillator.start();
@@ -736,7 +741,7 @@
             type: type || 'info',
             timestamp: Date.now()
         });
-        gameState.logs = gameState.logs.slice(-80);
+        gameState.logs = gameState.logs.slice(-MAX_LOGS);
     }
 
     function addChatMessage(text) {
@@ -747,7 +752,7 @@
             text,
             timestamp: Date.now()
         });
-        gameState.chat = gameState.chat.slice(-80);
+        gameState.chat = gameState.chat.slice(-MAX_CHAT_MESSAGES);
     }
 
     function broadcastState(skipPublish) {
@@ -846,7 +851,7 @@
         channel.presence.enter({ name: myName }, (enterError) => {
             if (enterError) {
                 console.error('Presence enter failed', enterError);
-                showSetupError('Connected to Ably, but failed to enter table presence. Please retry.');
+                showSetupError('Connected to Ably, but failed to enter table presence. Please check your network connection and refresh or retry.');
                 showToast('Presence join failed.', 'danger');
                 return;
             }
@@ -1027,6 +1032,7 @@
         const pots = [];
         while (contributors.some((entry) => entry.amount > 0)) {
             const positiveAmounts = contributors.filter((entry) => entry.amount > 0).map((entry) => entry.amount);
+            if (!positiveAmounts.length) break;
             const smallest = Math.min(...positiveAmounts);
             const eligibleIds = contributors.filter((entry) => entry.amount > 0).map((entry) => entry.id);
             const amount = smallest * eligibleIds.length;
@@ -1042,7 +1048,7 @@
         return pots;
     }
 
-    function applyContribution(player, amount, label) {
+    function applyContribution(player, amount, label, logType) {
         const contribution = Math.min(player.wallet, Math.max(0, amount));
         if (contribution <= 0) return 0;
         player.wallet -= contribution;
@@ -1051,7 +1057,7 @@
         if (player.wallet === 0) player.allIn = true;
         gameState.pot += contribution;
         gameState.minimumBet = Math.max(gameState.config.chipValues[0], Math.min(currentSelectedBet, contribution || gameState.config.chipValues[0]));
-        logEvent(`${player.name} ${label} €${contribution}.`, label === 'went all-in for' ? 'warning' : 'info');
+        logEvent(`${player.name} ${label} €${contribution}.`, logType || 'info');
         return contribution;
     }
 
@@ -1075,7 +1081,7 @@
             timestamp: Date.now(),
             sidePots: buildSidePots()
         });
-        gameState.sessionHistory = gameState.sessionHistory.slice(-50);
+        gameState.sessionHistory = gameState.sessionHistory.slice(-MAX_HISTORY_ENTRIES);
         gameState.handActive = false;
         gameState.paused = false;
         gameState.pauseReason = '';
@@ -1179,19 +1185,19 @@
                 return;
             }
             currentPlayer.blindsCount += 1;
-            applyContribution(currentPlayer, blindCost, 'played blind for');
+            applyContribution(currentPlayer, blindCost, 'played blind for', 'info');
         } else if (moveType === 'Chaal') {
             if (currentPlayer.wallet < currentSelectedBet) {
                 alert('Selected chaal is higher than your wallet. Use a smaller chip, go all-in, or fold.');
                 return;
             }
-            applyContribution(currentPlayer, currentSelectedBet, 'bet');
+            applyContribution(currentPlayer, currentSelectedBet, 'bet', 'info');
         } else if (moveType === 'All-in') {
             if (currentPlayer.wallet <= 0) {
                 alert('You have no chips left to go all-in.');
                 return;
             }
-            applyContribution(currentPlayer, currentPlayer.wallet, 'went all-in for');
+            applyContribution(currentPlayer, currentPlayer.wallet, 'went all-in for', 'warning');
             currentPlayer.allIn = true;
         } else if (moveType === 'Fold') {
             currentPlayer.folded = true;
@@ -1287,6 +1293,7 @@
             const splitAmount = Math.floor(sidePot.amount / tiedWinners.length);
             let remainder = sidePot.amount - (splitAmount * tiedWinners.length);
             tiedWinners.forEach((winner) => {
+                // Any indivisible remainder is awarded one chip at a time in sorted player-id order.
                 const bonus = remainder > 0 ? 1 : 0;
                 winner.wallet += splitAmount + bonus;
                 winner.totalWon += splitAmount + bonus;
@@ -1411,7 +1418,7 @@
         if (myClientId !== gameState.adminId || !gameState.handActive || gameState.paused || gameState.phaseIndex === PHASES.length - 1) {
             return;
         }
-        if (Date.now() < (gameState.actionDeadline + 2000)) return;
+        if (Date.now() < (gameState.actionDeadline + TIMEOUT_GRACE_PERIOD_MS)) return;
         const currentPlayer = getCurrentPlayer();
         if (!currentPlayer || !canPlayerAct(currentPlayer)) return;
         currentPlayer.folded = true;
