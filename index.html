@@ -23,6 +23,7 @@
         .status-bar { text-align: center; color: #94a3b8; font-weight: 500; font-size: 14px; margin-top: 5px; }
         .hidden { display: none; }
         .flex-row { display: flex; gap: 10px; margin-top: 10px; }
+        .error-box { background: #991b1b; padding: 10px; border-radius: 6px; margin-bottom: 10px; color: #fecaca; }
     </style>
 </head>
 <body>
@@ -32,6 +33,7 @@
 
     <div id="setupScreen" class="card">
         <h2>Join a Table</h2>
+        <div id="errorDisplay" class="hidden"></div>
         <div class="input-group">
             <label>Your Name</label>
             <input type="text" id="playerNameInput" placeholder="Enter name...">
@@ -86,7 +88,6 @@
 
 <script>
     // --- CONFIGURATION ---
-    // Your Ably API Key for real-time multiplayer sync
     const ABLY_API_KEY = 'fnVQhw.H7cEiA:Ipz3KJ6W9-CCUl4qGuYTTSA-rkCk5gBoFZfIeDUdrQQ'; 
 
     let ably, channel;
@@ -96,62 +97,95 @@
     
     // --- GAME ENGINE STATE ---
     let gameState = {
-        players: [],       // Array of { id, name, wallet, blindsCount, folded }
+        players: [],
         pot: 0,
         turnIndex: 0,
         handActive: false
     };
 
+    function showError(msg) {
+        const errorBox = document.getElementById('errorDisplay');
+        errorBox.innerHTML = '<div class="error-box">' + msg + '</div>';
+        errorBox.classList.remove('hidden');
+        console.error(msg);
+    }
+
+    function hideError() {
+        document.getElementById('errorDisplay').classList.add('hidden');
+    }
+
     function connectToTable() {
+        hideError();
         myName = document.getElementById('playerNameInput').value.trim();
         roomCode = document.getElementById('tableCodeInput').value.trim().toUpperCase();
         
         if(!myName || !roomCode) {
-            alert("Please provide both your Name and a Table Code.");
+            showError("Please provide both your Name and a Table Code.");
             return;
         }
 
         myClientId = 'id_' + Math.random().toString(36).substr(2, 9);
 
-        if(!ABLY_API_KEY || ABLY_API_KEY === 'YOUR_ABLY_API_KEY_HERE') {
-            alert("Please update the ABLY_API_KEY variable inside the script source to enable multiplayer capability.");
+        console.log("API Key:", ABLY_API_KEY);
+        console.log("API Key Length:", ABLY_API_KEY.length);
+
+        if(!ABLY_API_KEY || ABLY_API_KEY.length === 0) {
+            showError("API Key is empty. Please add your Ably API key.");
             return;
         }
 
-        // Initialize Ably connection
-        ably = new Ably.Realtime({ key: ABLY_API_KEY, clientId: myClientId });
-        channel = ably.channels.get('teen-patti-' + roomCode);
+        if(ABLY_API_KEY === 'YOUR_ABLY_API_KEY_HERE') {
+            showError("Please add your actual Ably API key to enable multiplayer.");
+            return;
+        }
 
-        // Listen for state sync signals from any player actions
-        channel.subscribe('stateUpdate', (message) => {
-            gameState = message.data;
-            updateGameUI();
-        });
+        try {
+            console.log("Initializing Ably connection...");
+            // Initialize Ably connection
+            ably = new Ably.Realtime({ key: ABLY_API_KEY, clientId: myClientId });
+            channel = ably.channels.get('teen-patti-' + roomCode);
 
-        // Broadcast presence to join the roster seamlessly
-        channel.presence.subscribe('enter', (member) => {
-            if(myClientId === gameState.players[0]?.id) { // Let the oldest room member synchronize updates
-                syncJoiner(member.clientId, member.data.name);
-            }
-        });
+            // Listen for state sync signals from any player actions
+            channel.subscribe('stateUpdate', (message) => {
+                gameState = message.data;
+                updateGameUI();
+            });
 
-        channel.presence.enter({ name: myName });
+            // Broadcast presence to join the roster seamlessly
+            channel.presence.subscribe('enter', (member) => {
+                if(myClientId === gameState.players[0]?.id) {
+                    syncJoiner(member.clientId, member.data.name);
+                }
+            });
 
-        // Retrieve current peer list dynamically upon joining
-        channel.presence.get((err, members) => {
-            if(!err && gameState.players.length === 0) {
-                members.forEach(m => {
-                    if(!gameState.players.find(p => p.id === m.clientId)) {
-                        gameState.players.push({ id: m.clientId, name: m.data.name, wallet: 200, blindsCount: 0, folded: false });
-                    }
-                });
-                broadcastState();
-            }
-        });
+            channel.presence.enter({ name: myName });
 
-        document.getElementById('setupScreen').classList.add('hidden');
-        document.getElementById('displayTableCode').innerText = roomCode;
-        document.getElementById('gameScreen').classList.remove('hidden');
+            // Retrieve current peer list dynamically upon joining
+            channel.presence.get((err, members) => {
+                if(err) {
+                    console.error("Presence error:", err);
+                    showError("Connection error: " + err.message);
+                    return;
+                }
+                if(!err && gameState.players.length === 0) {
+                    members.forEach(m => {
+                        if(!gameState.players.find(p => p.id === m.clientId)) {
+                            gameState.players.push({ id: m.clientId, name: m.data.name, wallet: 200, blindsCount: 0, folded: false });
+                        }
+                    });
+                    broadcastState();
+                }
+            });
+
+            document.getElementById('setupScreen').classList.add('hidden');
+            document.getElementById('displayTableCode').innerText = roomCode;
+            document.getElementById('gameScreen').classList.remove('hidden');
+            console.log("Connected successfully!");
+
+        } catch(e) {
+            showError("Connection failed: " + e.message);
+            console.error("Connection error:", e);
+        }
     }
 
     function syncJoiner(id, name) {
@@ -190,7 +224,6 @@
             listContainer.appendChild(div);
         });
 
-        // Enforce matching strict turn restrictions
         if(gameState.handActive && activePlayerObj && activePlayerObj.id === myClientId) {
             document.getElementById('actionPad').style.opacity = "1";
             setInteractiveInputs(false, activePlayerObj);
@@ -219,12 +252,11 @@
     }
 
     function hostResetHand() {
-        // Collect entry stakes automatically
         gameState.pot = 0;
         gameState.players.forEach(p => {
             p.folded = false;
             p.blindsCount = 0;
-            p.wallet -= 1; // Boot cost
+            p.wallet -= 1;
             gameState.pot += 1;
         });
         gameState.turnIndex = 0;
@@ -257,7 +289,6 @@
         currentPlayer.wallet -= betSize;
         gameState.pot += betSize;
 
-        // Move calculation tracker forward to next active player sequence loop
         advanceTurn();
         broadcastState();
     }
