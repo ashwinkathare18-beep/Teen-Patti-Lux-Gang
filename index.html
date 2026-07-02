@@ -86,7 +86,7 @@
 
 <script>
     // --- CONFIGURATION ---
-    // Replace with your free Ably API Key from ably.com to activate live syncing
+    // Your Ably API Key for real-time multiplayer sync
     const ABLY_API_KEY = 'fnVQhw.H7cEiA:Ipz3KJ6W9-CCUl4qGuYTTSA-rkCk5gBoFZfIeDUdrQQ'; 
 
     let ably, channel;
@@ -113,7 +113,7 @@
 
         myClientId = 'id_' + Math.random().toString(36).substr(2, 9);
 
-        if(ABLY_API_KEY === 'fnVQhw.AEig-A:CSXDUdvE9TjLFn5etH2nQRxmL_KJDnDvR2uBMeuX1RI') {
+        if(!ABLY_API_KEY || ABLY_API_KEY === 'YOUR_ABLY_API_KEY_HERE') {
             alert("Please update the ABLY_API_KEY variable inside the script source to enable multiplayer capability.");
             return;
         }
