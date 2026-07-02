@@ -287,8 +287,8 @@
         }
 
         if(moveType === 'Blind') {
-            if(currentPlayer.wallet < 1) {
-                alert("You need to buy at least 1 coin from the dealer before playing blind.");
+            if(currentPlayer.wallet < MIN_COINS_TO_START_HAND) {
+                alert(`You need to buy at least ${MIN_COINS_TO_START_HAND} coin from the dealer before playing blind.`);
                 return;
             }
             if((currentPlayer.blindsCount || 0) >= 2) {
@@ -300,7 +300,7 @@
             gameState.pot += 1;
         } else if(moveType === 'Chaal') {
             if(currentPlayer.wallet < currentSelectedBet) {
-                alert(`You need to buy at least €${currentSelectedBet} in coins from the dealer before playing chaal.`);
+                alert(`You need to buy at least ${currentSelectedBet} coins from the dealer before playing chaal.`);
                 return;
             }
             currentPlayer.wallet -= currentSelectedBet;
@@ -343,8 +343,8 @@
         if(!player) return;
 
         const amount = Number(prompt(`Enter coins purchased for ${player.name}:`, '100'));
-        if(!Number.isFinite(amount) || amount <= 0) {
-            alert("Enter a valid coin amount greater than 0.");
+        if(!Number.isInteger(amount) || amount <= 0) {
+            alert("Enter a valid whole coin amount greater than 0.");
             return;
         }
 
