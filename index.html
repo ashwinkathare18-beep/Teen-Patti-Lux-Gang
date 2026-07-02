@@ -254,6 +254,10 @@
             if(currentPlayer.id === myClientId) {
                 document.getElementById('turnIndicator').innerText = '🎪 Your Turn! Make a move...';
                 document.getElementById('actionPad').classList.remove('hidden');
+                // Disable Blind button once the player has used their 2 blind allowance
+                const blindBtn = document.getElementById('blindActionBtn');
+                blindBtn.disabled = currentPlayer.blindsCount >= 2;
+                blindBtn.title = currentPlayer.blindsCount >= 2 ? 'Blind limit reached (max 2 per hand)' : '';
             } else {
                 document.getElementById('turnIndicator').innerText = `⏳ Waiting for ${currentPlayer.name}'s move...`;
                 document.getElementById('actionPad').classList.add('hidden');
@@ -272,6 +276,11 @@
         }
 
         if(moveType === 'Blind') {
+            if(currentPlayer.blindsCount >= 2) {
+                alert("You have already played 2 blinds this hand. You must Chaal or Fold.");
+                return;
+            }
+            currentPlayer.blindsCount += 1;
             currentPlayer.wallet -= 1;
             gameState.pot += 1;
         } else if(moveType === 'Chaal') {
@@ -295,7 +304,7 @@
         gameState.handActive = true;
         gameState.turnIndex = 0;
         gameState.pot = 0;
-        gameState.players.forEach(p => p.folded = false);
+        gameState.players.forEach(p => { p.folded = false; p.blindsCount = 0; });
         broadcastState();
     }
 
