@@ -42,11 +42,11 @@
         .controls-right { display: flex; flex-direction: column; align-items: flex-end; }
 
         /* GIANT MEGA POPUP OVERLAY SYSTEM */
-        .mega-popup-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.98); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; text-align: center; padding: 20px; box-sizing: border-box; }
+        .mega-popup-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.98); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; padding: 20px; }
         .mega-winner-title { font-size: 32px; color: #fbbf24; text-transform: uppercase; letter-spacing: 3px; font-weight: 800; margin-bottom: 10px; }
         .mega-winner-name { font-size: 80px; font-weight: 900; color: #ffffff; text-shadow: 0 0 40px rgba(251,191,36,0.7); margin: 25px 0; text-transform: uppercase; word-wrap: break-word; max-width: 100%; }
         .mega-winner-pot { font-size: 48px; color: #4ade80; font-weight: bold; }
-        .mega-close-btn { margin-top: 50px; background: #fbbf24; color: #000; width: auto; padding: 18px 50px; font-size: 20px; border-radius: 35px; box-shadow: 0 10px 20px rgba(251,191,36,0.3); }
+        .mega-close-btn { margin-top: 50px; background: #fbbf24; color: #000; width: auto; padding: 18px 50px; font-size: 20px; border-radius: 35px; box-shadow: 0 10px 20px rgba(251,191,36,0.3); cursor: pointer; }
     </style>
 </head>
 <body>
@@ -71,7 +71,7 @@
     <!-- SECTION 2: LIVE GAMEBOARD -->
     <div id="gameScreen" class="hidden">
         <div class="card" style="padding: 10px 20px;">
-            <h3 style="margin: 0; text-align: left; font-size:14px; color:#94a3b8;">Table Code: <span id="displayTableCode" style="color:#fff;"></span> <span id="adminBadge" style="color:#fbbf24; margin-left:10px; font-size:12px; display:none;">(★ You are Admin)</span></h3>
+            <h3 style="margin: 0; text-align: left; font-size:14px; color:#94a3b8;">Table Code: <span id="displayTableCode" style="color:#fff;"></span> <span id="adminBadge" style="color:#fbbf24; display:none;">👑 ADMIN</span></h3>
         </div>
 
         <!-- PENDING TURN DISPLAY -->
@@ -125,7 +125,7 @@
 
 <script>
     // --- CONFIGURATION ---
-    const ABLY_API_KEY = 'YOUR_ABLY_API_KEY_HERE'; 
+    const ABLY_API_KEY = 'fnVQhw.H7cEiA:Ipz3KJ6W9-CCUl4qGuYTTSA-rkCk5gBoFZfIeDUdrQQ'; 
 
     let ably, channel;
     let roomCode = "";
@@ -154,46 +154,45 @@
 
         myClientId = 'id_' + Math.random().toString(36).substr(2, 9);
 
-        if(ABLY_API_KEY === 'YOUR_ABLY_API_KEY_HERE') {
-            alert("Please update the ABLY_API_KEY variable inside the script source to enable multiplayer capability.");
-            return;
+        try {
+            ably = new Ably.Realtime({ key: ABLY_API_KEY, clientId: myClientId });
+            channel = ably.channels.get('teen-patti-' + roomCode);
+
+            channel.subscribe('stateUpdate', (message) => {
+                gameState = message.data;
+                updateGameUI();
+            });
+
+            channel.subscribe('victoryEvent', (message) => {
+                triggerGiantVictoryDisplay(message.data.name, message.data.potAmount);
+            });
+
+            channel.presence.subscribe('enter', (member) => {
+                if(myClientId === gameState.adminId) { 
+                    syncJoiner(member.clientId, member.data.name);
+                }
+            });
+
+            channel.presence.enter({ name: myName });
+
+            channel.presence.get((err, members) => {
+                if(!err && gameState.players.length === 0) {
+                    gameState.adminId = myClientId; 
+                    members.forEach(m => {
+                        if(!gameState.players.find(p => p.id === m.clientId)) {
+                            gameState.players.push({ id: m.clientId, name: m.data.name, wallet: 0, blindsCount: 0, folded: false, wins: 0, losses: 0 });
+                        }
+                    });
+                    broadcastState();
+                }
+            });
+
+            document.getElementById('setupScreen').classList.add('hidden');
+            document.getElementById('displayTableCode').innerText = roomCode;
+            document.getElementById('gameScreen').classList.remove('hidden');
+        } catch(e) {
+            alert("Connection error: " + e.message);
         }
-
-        ably = new Ably.Realtime({ key: ABLY_API_KEY, clientId: myClientId });
-        channel = ably.channels.get('teen-patti-' + roomCode);
-
-        channel.subscribe('stateUpdate', (message) => {
-            gameState = message.data;
-            updateGameUI();
-        });
-
-        channel.subscribe('victoryEvent', (message) => {
-            triggerGiantVictoryDisplay(message.data.name, message.data.potAmount);
-        });
-
-        channel.presence.subscribe('enter', (member) => {
-            if(myClientId === gameState.adminId) { 
-                syncJoiner(member.clientId, member.data.name);
-            }
-        });
-
-        channel.presence.enter({ name: myName });
-
-        channel.presence.get((err, members) => {
-            if(!err && gameState.players.length === 0) {
-                gameState.adminId = myClientId; 
-                members.forEach(m => {
-                    if(!gameState.players.find(p => p.id === m.clientId)) {
-                        gameState.players.push({ id: m.clientId, name: m.data.name, wallet: 0, blindsCount: 0, folded: false, wins: 0, losses: 0 });
-                    }
-                });
-                broadcastState();
-            }
-        });
-
-        document.getElementById('setupScreen').classList.add('hidden');
-        document.getElementById('displayTableCode').innerText = roomCode;
-        document.getElementById('gameScreen').classList.remove('hidden');
     }
 
     function syncJoiner(id, name) {
