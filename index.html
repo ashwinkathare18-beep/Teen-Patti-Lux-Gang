@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Live Teen Patti Companion</title>
+    <!-- Include Ably Realtime SDK for syncing moves instantly across phones -->
     <script src="https://cdn.ably.com/lib/ably.min-1.js"></script>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 15px; }
@@ -12,17 +13,27 @@
         h1, h2, h3 { margin-top: 0; color: #fbbf24; text-align: center; }
         .pot-display { font-size: 32px; text-align: center; font-weight: bold; color: #4ade80; background: #064e3b; padding: 15px; border-radius: 8px; border: 2px solid #059669; }
         .input-group { margin-bottom: 12px; display: flex; flex-direction: column; gap: 5px; }
-        input, select { background: #334155; color: #fff; border: 1px solid #475569; padding: 10px; border-radius: 6px; font-size: 16px; }
+        input { background: #334155; color: #fff; border: 1px solid #475569; padding: 10px; border-radius: 6px; font-size: 16px; }
         button { background: #2563eb; color: white; border: none; padding: 12px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 16px; width: 100%; transition: background 0.2s; }
-        button:disabled { background: #475569; cursor: not-allowed; opacity: 0.6; }
+        button:disabled { background: #475569; cursor: not-allowed; opacity: 0.4; }
         button.blind-btn { background: #d97706; }
         button.chaal-btn { background: #059669; }
         button.fold-btn { background: #dc2626; }
-        .player-badge { display: flex; justify-content: space-between; padding: 10px; background: #334155; border-radius: 6px; margin-bottom: 6px; align-items: center; }
+        
+        /* Bet Size Tabs styling */
+        .bet-tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+        .bet-tab { background: #334155; border: 2px solid #475569; padding: 10px; border-radius: 8px; font-weight: bold; text-align: center; flex: 1; cursor: pointer; transition: all 0.2s; }
+        .bet-tab.selected { background: #2563eb; border-color: #3b82f6; color: #fff; transform: scale(1.03); }
+        
+        /* Players list layout modifications */
+        .player-badge { display: flex; justify-content: space-between; padding: 12px; background: #334155; border-radius: 6px; margin-bottom: 8px; align-items: center; border: 2px solid transparent; }
         .active-turn { border: 2px solid #fbbf24; background: #1e3a8a; }
-        .status-bar { text-align: center; color: #94a3b8; font-weight: 500; font-size: 14px; margin-top: 5px; }
+        .history-text { font-size: 11px; color: #94a3b8; margin-top: 4px; font-family: monospace; }
+        .status-bar { text-align: center; color: #94a3b8; font-weight: bold; font-size: 16px; margin-top: 5px; background: #1e293b; padding: 10px; border-radius: 6px; border: 1px solid #475569; }
         .hidden { display: none; }
         .flex-row { display: flex; gap: 10px; margin-top: 10px; }
+        .admin-crown-btn { background: #fbbf24; color: #000; font-size: 12px; padding: 6px 10px; width: auto; border-radius: 4px; }
+        .badge-left { display: flex; flex-direction: column; }
     </style>
 </head>
 <body>
@@ -30,6 +41,7 @@
 <div class="container">
     <h1>♠ Teen Patti Companion ♠</h1>
 
+    <!-- SECTION 1: JOIN/CREATE ROOM -->
     <div id="setupScreen" class="card">
         <h2>Join a Table</h2>
         <div class="input-group">
@@ -43,57 +55,63 @@
         <button onclick="connectToTable()">Enter Table</button>
     </div>
 
+    <!-- SECTION 2: LIVE GAMEBOARD -->
     <div id="gameScreen" class="hidden">
-        <div class="card">
-            <h3 style="margin-bottom:5px;">Table: <span id="displayTableCode" style="color:#fff;"></span></h3>
-            <div class="status-bar" id="turnIndicator">Waiting for players to start...</div>
+        <div class="card" style="padding: 10px 20px;">
+            <h3 style="margin: 0; text-align: left; font-size:14px; color:#94a3b8;">Table Code: <span id="displayTableCode" style="color:#fff;"></span> <span id="adminBadge" style="color:#fbbf24; margin-left:10px; font-size:12px; display:none;">(★ You are Admin)</span></h3>
         </div>
+
+        <!-- NEW PENDING TURN DISPLAY -->
+        <div class="status-bar" id="turnIndicator">Waiting for game initiation...</div>
+        <br>
 
         <div class="card">
             <h3>Current Pot</h3>
             <div class="pot-display">€<span id="potValue">0</span></div>
-            <div class="status-bar" id="lastActionText">Game initialized.</div>
         </div>
 
-        <div class="card">
-            <h3>Players Sequence</h3>
-            <div id="playerList"></div>
-            <button id="startHandBtn" class="flex-row" style="background:#7c3aed; margin-top:15px;" onclick="hostResetHand()">♥ Start / Next Hand ♥</button>
-        </div>
-
+        <!-- ACTION PAD -->
         <div id="actionPad" class="card">
             <h3>Your Turn Actions</h3>
-            <div class="input-group" id="betSizeSelectorContainer">
-                <label>Select Bet Amount (€2 - €5):</label>
-                <select id="betAmountSelection">
-                    <option value="2">€2.00</option>
-                    <option value="3">€3.00</option>
-                    <option value="4">€4.00</option>
-                    <option value="5">€5.00</option>
-                </select>
+            <label style="display:block; margin-bottom: 6px; font-size: 14px; color: #cbd5e1;">Select Chaal Amount:</label>
+            <div class="bet-tabs">
+                <div class="bet-tab selected" onclick="selectBetTab(2)" id="tab-2">€2</div>
+                <div class="bet-tab" onclick="selectBetTab(3)" id="tab-3">€3</div>
+                <div class="bet-tab" onclick="selectBetTab(4)" id="tab-4">€4</div>
+                <div class="bet-tab" onclick="selectBetTab(5)" id="tab-5">€5</div>
             </div>
+            
             <div class="flex-row">
                 <button id="blindActionBtn" class="blind-btn" onclick="submitMove('Blind')">Blind (€1)</button>
                 <button id="chaalActionBtn" class="chaal-btn" onclick="submitMove('Chaal')">Chaal</button>
-            </div>
-            <div class="flex-row">
                 <button class="fold-btn" onclick="submitMove('Fold')">Fold</button>
-                <button style="background:#4b5563;" onclick="submitMove('Show')">Show / Win Pot</button>
             </div>
+        </div>
+
+        <!-- PLAYER ROSTER WITH WIN LOGS AND ADMIN PAYOUT CONTROLS -->
+        <div class="card">
+            <h3>Players & History</h3>
+            <div id="playerList"></div>
+            <button id="startHandBtn" style="background:#7c3aed; margin-top:15px; display:none;" onclick="hostResetHand()">♥ Start Next Hand ♥</button>
         </div>
     </div>
 </div>
 
 <script>
-    const ABLY_API_KEY = "fnVQhw.H7cEiA:Ipz3KJ6W9-CCUl4qGuYTTSA-rkCk5gBoFZfIeDUdrQQ";
+    // --- CONFIGURATION ---
+    // Update this with your working Ably key to instantly activate syncing across networks
+    const ABLY_API_KEY = 'YOUR_ABLY_API_KEY_HERE'; 
 
     let ably, channel;
     let roomCode = "";
     let myClientId = "";
     let myName = "";
+    let currentSelectedBet = 2; // Default tab choice
     
+    // --- GAME ENGINE STATE ---
     let gameState = {
-        players: [],
+        adminId: "",       // Tracks who configured the room first
+        players: [],       // Array of { id, name, wallet, blindsCount, folded, wins: 0, losses: 0 }
         pot: 0,
         turnIndex: 0,
         handActive: false
@@ -110,48 +128,59 @@
 
         myClientId = 'id_' + Math.random().toString(36).substr(2, 9);
 
-        try {
-            ably = new Ably.Realtime({ key: ABLY_API_KEY, clientId: myClientId });
-            channel = ably.channels.get('teen-patti-' + roomCode);
-
-            channel.subscribe('stateUpdate', (message) => {
-                gameState = message.data;
-                updateGameUI();
-            });
-
-            channel.presence.subscribe('enter', (member) => {
-                if(myClientId === gameState.players[0]?.id) {
-                    syncJoiner(member.clientId, member.data.name);
-                }
-            });
-
-            channel.presence.enter({ name: myName });
-
-            channel.presence.get((err, members) => {
-                if(!err && gameState.players.length === 0) {
-                    members.forEach(m => {
-                        if(!gameState.players.find(p => p.id === m.clientId)) {
-                            gameState.players.push({ id: m.clientId, name: m.data.name, wallet: 200, blindsCount: 0, folded: false });
-                        }
-                    });
-                    broadcastState();
-                }
-            });
-
-            document.getElementById('setupScreen').classList.add('hidden');
-            document.getElementById('displayTableCode').innerText = roomCode;
-            document.getElementById('gameScreen').classList.remove('hidden');
-
-        } catch(e) {
-            alert("Connection error: " + e.message);
+        if(ABLY_API_KEY === 'YOUR_ABLY_API_KEY_HERE') {
+            alert("Please update the ABLY_API_KEY variable inside the script source to enable multiplayer capability.");
+            return;
         }
+
+        ably = new Ably.Realtime({ key: ABLY_API_KEY, clientId: myClientId });
+        channel = ably.channels.get('teen-patti-' + roomCode);
+
+        channel.subscribe('stateUpdate', (message) => {
+            gameState = message.data;
+            updateGameUI();
+        });
+
+        channel.presence.subscribe('enter', (member) => {
+            if(myClientId === gameState.adminId) { 
+                syncJoiner(member.clientId, member.data.name);
+            }
+        });
+
+        channel.presence.enter({ name: myName });
+
+        channel.presence.get((err, members) => {
+            if(!err && gameState.players.length === 0) {
+                // First client inside this code room claims Admin privileges
+                gameState.adminId = myClientId; 
+                members.forEach(m => {
+                    if(!gameState.players.find(p => p.id === m.clientId)) {
+                        gameState.players.push({ id: m.clientId, name: m.data.name, wallet: 200, blindsCount: 0, folded: false, wins: 0, losses: 0 });
+                    }
+                });
+                broadcastState();
+            }
+        });
+
+        document.getElementById('setupScreen').classList.add('hidden');
+        document.getElementById('displayTableCode').innerText = roomCode;
+        document.getElementById('gameScreen').classList.remove('hidden');
     }
 
     function syncJoiner(id, name) {
         if(!gameState.players.find(p => p.id === id)) {
-            gameState.players.push({ id: id, name: name, wallet: 200, blindsCount: 0, folded: false });
+            gameState.players.push({ id: id, name: name, wallet: 200, blindsCount: 0, folded: false, wins: 0, losses: 0 });
             broadcastState();
         }
+    }
+
+    function selectBetTab(val) {
+        currentSelectedBet = val;
+        // Visual tab toggle update loop
+        for(let i=2; i<=5; i++) {
+            document.getElementById(`tab-${i}`).classList.remove('selected');
+        }
+        document.getElementById(`tab-${val}`).classList.add('selected');
     }
 
     function broadcastState() {
@@ -163,59 +192,85 @@
         const listContainer = document.getElementById('playerList');
         listContainer.innerHTML = '';
 
+        const isAdmin = (myClientId === gameState.adminId);
+        
+        // Handle global layout triggers for admin
+        if(isAdmin) {
+            document.getElementById('adminBadge').style.display = "inline";
+            document.getElementById('startHandBtn').style.display = "block";
+        }
+
         if(gameState.players.length === 0) return;
 
         let activePlayerObj = gameState.players[gameState.turnIndex];
 
+        // RENDER TURN PENDING HEADER
+        if(gameState.handActive && activePlayerObj) {
+            document.getElementById('turnIndicator').innerText = `PENDING TURN: ${activePlayerObj.name.toUpperCase()}`;
+            if(activePlayerObj.id === myClientId) {
+                document.getElementById('turnIndicator').style.color = "#fbbf24";
+                document.getElementById('turnIndicator').style.borderColor = "#fbbf24";
+            } else {
+                document.getElementById('turnIndicator').style.color = "#a7f3d0";
+                document.getElementById('turnIndicator').style.borderColor = "#475569";
+            }
+        } else {
+            document.getElementById('turnIndicator').innerText = "Waiting for Admin to clear / start next hand...";
+            document.getElementById('turnIndicator').style.color = "#94a3b8";
+        }
+
+        // RENDER ROSTER ROWS
         gameState.players.forEach((p, idx) => {
             const isCurrent = (gameState.handActive && activePlayerObj && activePlayerObj.id === p.id);
             const statusLabel = p.folded ? "FOLDED" : (p.blindsCount < 2 ? `Blinds left: ${2 - p.blindsCount}` : "Chaal Only");
             
             const div = document.createElement('div');
             div.className = `player-badge ${isCurrent ? 'active-turn' : ''}`;
-            div.innerHTML = `
-                <div>
+            
+            // Build left column info containing session logs
+            let htmlContent = `
+                <div class="badge-left">
                     <strong>${p.name} ${p.id === myClientId ? '(You)' : ''}</strong>
-                    <div style="font-size:12px; color:#cbd5e1;">Balance: €${p.wallet} | ${statusLabel}</div>
+                    <div style="font-size:12px; color:#cbd5e1;">Bal: €${p.wallet} | <span style="color:#f3f4f6;">${statusLabel}</span></div>
+                    <div class="history-text">Hst: W:${p.wins} | L:${p.losses}</div>
                 </div>
-                <div>${isCurrent ? '⏳ Turn' : ''}</div>
             `;
+
+            // If user is Admin, render the declaration win controller buttons inside each player layout row
+            if(isAdmin && gameState.handActive && !p.folded) {
+                htmlContent += `<button class="admin-crown-btn" onclick="adminDeclareWinner('${p.id}')">🏆 Award Win</button>`;
+            } else if (isCurrent) {
+                htmlContent += `<div style="font-weight:bold; color:#fbbf24; font-size:13px;">⏳ Current</div>`;
+            }
+
+            div.innerHTML = htmlContent;
             listContainer.appendChild(div);
         });
 
+        // LOCK INPUT CONTROLS FOR NON-TURN PLAYERS
         if(gameState.handActive && activePlayerObj && activePlayerObj.id === myClientId) {
             document.getElementById('actionPad').style.opacity = "1";
             setInteractiveInputs(false, activePlayerObj);
-            document.getElementById('turnIndicator').innerText = "YOUR TURN! Submit action.";
-            document.getElementById('turnIndicator').style.color = "#fbbf24";
         } else {
-            document.getElementById('actionPad').style.opacity = "0.5";
+            document.getElementById('actionPad').style.opacity = "0.4";
             setInteractiveInputs(true, null);
-            if(gameState.handActive && activePlayerObj) {
-                document.getElementById('turnIndicator').innerText = `Waiting for ${activePlayerObj.name}...`;
-                document.getElementById('turnIndicator').style.color = "#94a3b8";
-            }
         }
     }
 
     function setInteractiveInputs(disableAll, playerObj) {
         document.getElementById('blindActionBtn').disabled = disableAll || (playerObj && playerObj.blindsCount >= 2);
         document.getElementById('chaalActionBtn').disabled = disableAll;
-        document.getElementById('betAmountSelection').disabled = disableAll;
-        
-        if(playerObj && playerObj.blindsCount >= 2) {
-            document.getElementById('blindActionBtn').style.opacity = "0.3";
-        } else {
-            document.getElementById('blindActionBtn').style.opacity = "1";
-        }
+        document.getElementById('actionPad').style.pointerEvents = disableAll ? "none" : "auto";
     }
 
     function hostResetHand() {
+        if(myClientId !== gameState.adminId) return;
+
         gameState.pot = 0;
         gameState.players.forEach(p => {
             p.folded = false;
             p.blindsCount = 0;
-            p.wallet -= 1;
+            p.wallet -= 1; // Boot cost collected automatically
             gameState.pot += 1;
         });
         gameState.turnIndex = 0;
@@ -233,14 +288,7 @@
             betSize = 1; 
             currentPlayer.blindsCount++;
         } else if (moveType === 'Chaal') {
-            betSize = parseInt(document.getElementById('betAmountSelection').value);
-        } else if (moveType === 'Show') {
-            currentPlayer.wallet += gameState.pot;
-            gameState.pot = 0;
-            gameState.handActive = false;
-            alert(`${currentPlayer.name} claims the entire pot!`);
-            broadcastState();
-            return;
+            betSize = currentSelectedBet;
         } else if (moveType === 'Fold') {
             currentPlayer.folded = true;
         }
@@ -249,6 +297,29 @@
         gameState.pot += betSize;
 
         advanceTurn();
+        broadcastState();
+    }
+
+    function adminDeclareWinner(winnerId) {
+        if(myClientId !== gameState.adminId) return;
+
+        const winner = gameState.players.find(p => p.id === winnerId);
+        if(!winner) return;
+
+        // Apply transaction data metrics updates
+        winner.wallet += gameState.pot;
+        winner.wins += 1;
+
+        // Everyone else remaining in this layout array gets marked for an individual loss tier record
+        gameState.players.forEach(p => {
+            if(p.id !== winnerId) {
+                p.losses += 1;
+            }
+        });
+
+        alert(`ADMIN ACTION: ${winner.name} won the pot of €${gameState.pot}!`);
+        gameState.pot = 0;
+        gameState.handActive = false;
         broadcastState();
     }
 
