@@ -4,7 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Live Teen Patti Companion Pro</title>
+    <!-- Include Ably Realtime SDK for syncing moves instantly across phones -->
     <script src="https://cdn.ably.com/lib/ably.min-1.js"></script>
+    <!-- Include SheetJS library for generating physical Excel files entirely client-side -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 15px; }
@@ -20,11 +22,13 @@
         button.chaal-btn { background: #059669; }
         button.fold-btn { background: #dc2626; }
         
+        /* Bet Size Tabs styling */
         .bet-tabs { display: flex; gap: 8px; margin-bottom: 12px; }
         .bet-tab { background: #334155; border: 2px solid #475569; padding: 10px; border-radius: 8px; font-weight: bold; text-align: center; flex: 1; cursor: pointer; transition: all 0.2s; }
         .bet-tab.selected { background: #2563eb; border-color: #3b82f6; color: #fff; transform: scale(1.03); }
-        .bet-tab.disabled-tab { opacity: 0.25; cursor: not-allowed; background: #1e293b; border-color: #334155; }
+        .bet-tab.disabled-tab { opacity: 0.15; cursor: not-allowed; background: #0f172a; border-color: #1e293b; color: #475569; }
         
+        /* Players list layout modifications */
         .player-badge { display: flex; justify-content: space-between; padding: 12px; background: #334155; border-radius: 6px; margin-bottom: 8px; align-items: center; border: 2px solid transparent; }
         .active-turn { border: 2px solid #fbbf24; background: #1e3a8a; }
         .history-text { font-size: 11px; color: #94a3b8; margin-top: 4px; font-family: monospace; }
@@ -32,15 +36,17 @@
         .hidden { display: none; }
         .flex-row { display: flex; gap: 10px; margin-top: 10px; }
         .admin-crown-btn { background: #fbbf24; color: #000; font-size: 12px; padding: 6px 10px; width: auto; border-radius: 4px; font-weight: bold; margin-bottom: 4px; }
-        .admin-buyin-btn { background: #6b7280; color: #fff; font-size: 11px; padding: 4px 8px; width: auto; border-radius: 4px; margin-right: 4px; }
+        .admin-buyin-btn { background: #6b7280; color: #fff; font-size: 11px; padding: 4px 8px; width: auto; border-radius: 4px; margin-right: 4px; border: 1px solid #4b5563; }
+        .admin-buyin-btn:hover { background: #4b5563; }
         .badge-left { display: flex; flex-direction: column; }
         .controls-right { display: flex; flex-direction: column; align-items: flex-end; }
 
-        .mega-popup-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.95); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; padding: 20px; }
-        .mega-winner-title { font-size: 28px; color: #fbbf24; text-transform: uppercase; letter-spacing: 2px; font-weight: 800; margin-bottom: 10px; }
-        .mega-winner-name { font-size: 72px; font-weight: 900; color: #ffffff; text-shadow: 0 0 30px rgba(251,191,36,0.6); margin: 20px 0; text-transform: uppercase; word-wrap: break-word; max-width: 100%; }
-        .mega-winner-pot { font-size: 42px; color: #4ade80; font-weight: bold; }
-        .mega-close-btn { margin-top: 40px; background: #fbbf24; color: #000; width: auto; padding: 15px 40px; font-size: 18px; border-radius: 30px; }
+        /* GIANT MEGA POPUP OVERLAY SYSTEM */
+        .mega-popup-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.98); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; text-align: center; padding: 20px; box-sizing: border-box; }
+        .mega-winner-title { font-size: 32px; color: #fbbf24; text-transform: uppercase; letter-spacing: 3px; font-weight: 800; margin-bottom: 10px; }
+        .mega-winner-name { font-size: 80px; font-weight: 900; color: #ffffff; text-shadow: 0 0 40px rgba(251,191,36,0.7); margin: 25px 0; text-transform: uppercase; word-wrap: break-word; max-width: 100%; }
+        .mega-winner-pot { font-size: 48px; color: #4ade80; font-weight: bold; }
+        .mega-close-btn { margin-top: 50px; background: #fbbf24; color: #000; width: auto; padding: 18px 50px; font-size: 20px; border-radius: 35px; box-shadow: 0 10px 20px rgba(251,191,36,0.3); }
     </style>
 </head>
 <body>
@@ -48,6 +54,7 @@
 <div class="container">
     <h1>♠ Teen Patti Companion ♠</h1>
 
+    <!-- SECTION 1: JOIN/CREATE ROOM -->
     <div id="setupScreen" class="card">
         <h2>Join a Table</h2>
         <div class="input-group">
@@ -61,11 +68,13 @@
         <button onclick="connectToTable()">Enter Table</button>
     </div>
 
+    <!-- SECTION 2: LIVE GAMEBOARD -->
     <div id="gameScreen" class="hidden">
         <div class="card" style="padding: 10px 20px;">
-            <h3 style="margin: 0; text-align: left; font-size:14px; color:#94a3b8;">Table Code: <span id="displayTableCode" style="color:#fff;"></span> <span id="adminBadge" style="color:#fbbf24; display:none;">👑 ADMIN</span></h3>
+            <h3 style="margin: 0; text-align: left; font-size:14px; color:#94a3b8;">Table Code: <span id="displayTableCode" style="color:#fff;"></span> <span id="adminBadge" style="color:#fbbf24; margin-left:10px; font-size:12px; display:none;">(★ You are Admin)</span></h3>
         </div>
 
+        <!-- PENDING TURN DISPLAY -->
         <div class="status-bar" id="turnIndicator">Waiting for game initiation...</div>
         <br>
 
@@ -75,6 +84,7 @@
             <div id="minChaalNotice" style="text-align: center; margin-top: 8px; font-size: 13px; color: #cbd5e1; font-weight: 500;">Minimum Chaal Requirement: €2</div>
         </div>
 
+        <!-- ACTION PAD -->
         <div id="actionPad" class="card">
             <h3>Your Turn Actions</h3>
             <label style="display:block; margin-bottom: 6px; font-size: 14px; color: #cbd5e1;">Select Chaal Amount:</label>
@@ -92,18 +102,21 @@
             </div>
         </div>
 
+        <!-- PLAYER ROSTER WITH WIN LOGS AND ADMIN PAYOUT CONTROLS -->
         <div class="card">
             <h3>Players & History</h3>
             <div id="playerList"></div>
             
+            <!-- ADMIN TOOLS BLOCK -->
             <button id="startHandBtn" style="background:#7c3aed; margin-top:15px; display:none;" onclick="hostResetHand()">♥ Start Next Hand ♥</button>
             <button id="downloadExcelBtn" style="background:#0284c7; margin-top:8px; display:none;" onclick="exportToExcel()">📊 Download Excel Summary</button>
         </div>
     </div>
 </div>
 
+<!-- EXTRA LARGE WINNER SCREEN OVERLAY -->
 <div id="giantWinnerPopup" class="mega-popup-overlay hidden">
-    <div style="font-size: 80px; margin-bottom: 10px;">🏆</div>
+    <div style="font-size: 100px; margin-bottom: 10px;">🏆</div>
     <div class="mega-winner-title">ROUND WINNER</div>
     <div class="mega-winner-name" id="giantWinnerName">PLAYER NAME</div>
     <div class="mega-winner-pot">COLLECTED €<span id="giantWinnerPot">0</span></div>
@@ -111,8 +124,8 @@
 </div>
 
 <script>
-    // ROOT API KEY - Full Access
-    const ABLY_API_KEY = 'fnVQhw.H7cEiA:Ipz3KJ6W9-CCUl4qGuYTTSA-rkCk5gBoFZfIeDUdrQQ'; 
+    // --- CONFIGURATION ---
+    const ABLY_API_KEY = 'YOUR_ABLY_API_KEY_HERE'; 
 
     let ably, channel;
     let roomCode = "";
@@ -120,13 +133,14 @@
     let myName = "";
     let currentSelectedBet = 2; 
     
+    // --- GAME ENGINE STATE ---
     let gameState = {
         adminId: "",       
-        players: [],
+        players: [],       // Array of { id, name, wallet: 0 (Default), blindsCount, folded, wins, losses }
         pot: 0,
         turnIndex: 0,
         handActive: false,
-        minimumRequiredChaal: 2
+        minimumRequiredChaal: 2 
     };
 
     function connectToTable() {
@@ -140,45 +154,46 @@
 
         myClientId = 'id_' + Math.random().toString(36).substr(2, 9);
 
-        try {
-            ably = new Ably.Realtime({ key: ABLY_API_KEY, clientId: myClientId });
-            channel = ably.channels.get('teen-patti-' + roomCode);
-
-            channel.subscribe('stateUpdate', (message) => {
-                gameState = message.data;
-                updateGameUI();
-            });
-
-            channel.subscribe('victoryEvent', (message) => {
-                triggerGiantVictoryDisplay(message.data.name, message.data.potAmount);
-            });
-
-            channel.presence.subscribe('enter', (member) => {
-                if(myClientId === gameState.adminId) { 
-                    syncJoiner(member.clientId, member.data.name);
-                }
-            });
-
-            channel.presence.enter({ name: myName });
-
-            channel.presence.get((err, members) => {
-                if(!err && gameState.players.length === 0) {
-                    gameState.adminId = myClientId; 
-                    members.forEach(m => {
-                        if(!gameState.players.find(p => p.id === m.clientId)) {
-                            gameState.players.push({ id: m.clientId, name: m.data.name, wallet: 0, blindsCount: 0, folded: false, wins: 0, losses: 0 });
-                        }
-                    });
-                    broadcastState();
-                }
-            });
-
-            document.getElementById('setupScreen').classList.add('hidden');
-            document.getElementById('displayTableCode').innerText = roomCode;
-            document.getElementById('gameScreen').classList.remove('hidden');
-        } catch(e) {
-            alert("Connection error: " + e.message);
+        if(ABLY_API_KEY === 'YOUR_ABLY_API_KEY_HERE') {
+            alert("Please update the ABLY_API_KEY variable inside the script source to enable multiplayer capability.");
+            return;
         }
+
+        ably = new Ably.Realtime({ key: ABLY_API_KEY, clientId: myClientId });
+        channel = ably.channels.get('teen-patti-' + roomCode);
+
+        channel.subscribe('stateUpdate', (message) => {
+            gameState = message.data;
+            updateGameUI();
+        });
+
+        channel.subscribe('victoryEvent', (message) => {
+            triggerGiantVictoryDisplay(message.data.name, message.data.potAmount);
+        });
+
+        channel.presence.subscribe('enter', (member) => {
+            if(myClientId === gameState.adminId) { 
+                syncJoiner(member.clientId, member.data.name);
+            }
+        });
+
+        channel.presence.enter({ name: myName });
+
+        channel.presence.get((err, members) => {
+            if(!err && gameState.players.length === 0) {
+                gameState.adminId = myClientId; 
+                members.forEach(m => {
+                    if(!gameState.players.find(p => p.id === m.clientId)) {
+                        gameState.players.push({ id: m.clientId, name: m.data.name, wallet: 0, blindsCount: 0, folded: false, wins: 0, losses: 0 });
+                    }
+                });
+                broadcastState();
+            }
+        });
+
+        document.getElementById('setupScreen').classList.add('hidden');
+        document.getElementById('displayTableCode').innerText = roomCode;
+        document.getElementById('gameScreen').classList.remove('hidden');
     }
 
     function syncJoiner(id, name) {
@@ -189,8 +204,10 @@
     }
 
     function selectBetTab(val) {
-        if(val < gameState.minimumRequiredChaal) return;
+        if(!gameState.handActive) return;
+        if(val < gameState.minimumRequiredChaal) return; 
         currentSelectedBet = val;
+        
         for(let i=2; i<=5; i++) {
             document.getElementById(`tab-${i}`).classList.remove('selected');
         }
@@ -220,6 +237,7 @@
 
         let activePlayerObj = gameState.players[gameState.turnIndex];
 
+        // RENDER TURN PENDING HEADER
         if(gameState.handActive && activePlayerObj) {
             document.getElementById('turnIndicator').innerText = `PENDING TURN: ${activePlayerObj.name.toUpperCase()}`;
             document.getElementById('turnIndicator').style.color = (activePlayerObj.id === myClientId) ? "#fbbf24" : "#a7f3d0";
@@ -228,6 +246,11 @@
             document.getElementById('turnIndicator').style.color = "#94a3b8";
         }
 
+        // CALCULATE BLIND COSTS (Blind value is always half of current Chaal floor)
+        let blindCost = gameState.minimumRequiredChaal / 2;
+        document.getElementById('blindActionBtn').innerText = `Blind (€${blindCost})`;
+
+        // UPDATE TAB STYLING BASED ON ESCALATED FLOOR VALUE
         for(let i=2; i<=5; i++) {
             let el = document.getElementById(`tab-${i}`);
             if(i < gameState.minimumRequiredChaal) {
@@ -237,10 +260,21 @@
                 el.classList.remove('disabled-tab');
             }
         }
+
+        // Auto-correct active tab selection selection if floor over-runs it
         if(currentSelectedBet < gameState.minimumRequiredChaal) {
-            selectBetTab(gameState.minimumRequiredChaal);
+            currentSelectedBet = gameState.minimumRequiredChaal;
+        }
+        
+        // Re-render selected tab highlight state safely
+        for(let i=2; i<=5; i++) {
+            let el = document.getElementById(`tab-${i}`);
+            if(i === currentSelectedBet && i >= gameState.minimumRequiredChaal) {
+                el.classList.add('selected');
+            }
         }
 
+        // RENDER ROSTER ROWS
         gameState.players.forEach((p) => {
             const isCurrent = (gameState.handActive && activePlayerObj && activePlayerObj.id === p.id);
             const statusLabel = p.folded ? "FOLDED" : (p.blindsCount < 2 ? `Blinds left: ${2 - p.blindsCount}` : "Chaal Only");
@@ -276,19 +310,18 @@
             listContainer.appendChild(div);
         });
 
+        // ENFORCE LOCK SEPARATION AT DOM COMPILATION RUN TIME
         if(gameState.handActive && activePlayerObj && activePlayerObj.id === myClientId) {
             document.getElementById('actionPad').style.opacity = "1";
-            setInteractiveInputs(false, activePlayerObj);
+            document.getElementById('actionPad').style.pointerEvents = "auto";
+            
+            // Disable Blind button completely if player has hit 2 blinds OR if Chaal floor has changed
+            document.getElementById('blindActionBtn').disabled = (activePlayerObj.blindsCount >= 2 || gameState.minimumRequiredChaal > 2);
+            document.getElementById('chaalActionBtn').disabled = false;
         } else {
             document.getElementById('actionPad').style.opacity = "0.4";
-            setInteractiveInputs(true, null);
+            document.getElementById('actionPad').style.pointerEvents = "none";
         }
-    }
-
-    function setInteractiveInputs(disableAll, playerObj) {
-        document.getElementById('blindActionBtn').disabled = disableAll || (playerObj && playerObj.blindsCount >= 2) || (gameState.minimumRequiredChaal > 2);
-        document.getElementById('chaalActionBtn').disabled = disableAll;
-        document.getElementById('actionPad').style.pointerEvents = disableAll ? "none" : "auto";
     }
 
     function adminAddChips(playerId, amount) {
@@ -310,7 +343,8 @@
         }
 
         gameState.pot = 0;
-        gameState.minimumRequiredChaal = 2;
+        gameState.minimumRequiredChaal = 2; 
+        currentSelectedBet = 2;
         gameState.players.forEach(p => {
             p.folded = false;
             p.blindsCount = 0;
@@ -329,7 +363,7 @@
         let betSize = 0;
 
         if (moveType === 'Blind') {
-            betSize = 1; 
+            betSize = gameState.minimumRequiredChaal / 2; 
             currentPlayer.blindsCount++;
         } else if (moveType === 'Chaal') {
             betSize = currentSelectedBet;
@@ -340,8 +374,8 @@
             currentPlayer.folded = true;
         }
 
-        if(currentPlayer.wallet < betSize) {
-            alert("Insufficient chips! Buy in from Dealer/Admin.");
+        if(moveType !== 'Fold' && currentPlayer.wallet < betSize) {
+            alert("Insufficient chips! Ask the Admin to add chips to your account.");
             return;
         }
 
@@ -399,8 +433,8 @@
         let formattedData = gameState.players.map(p => ({
             "Player Name": p.name,
             "Current Wallet Balance (€)": p.wallet,
-            "Total Wins Handled": p.wins,
-            "Total Losses Handled": p.losses
+            "Total Wins": p.wins,
+            "Total Losses": p.losses
         }));
 
         let worksheet = XLSX.utils.json_to_sheet(formattedData);
