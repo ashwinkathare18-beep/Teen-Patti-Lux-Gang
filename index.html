@@ -255,7 +255,7 @@
         <div class="input-group">
             <label for="ablyKeyInput">Ably API Key</label>
             <input type="password" id="ablyKeyInput" placeholder="Paste your runtime key here">
-            <div class="help-text">The key is stored only in your browser so credentials are not hard-coded in the page.</div>
+            <div class="help-text">The key is stored in your browser's localStorage so credentials are not hard-coded in the page.</div>
         </div>
 
         <div class="grid-3">
@@ -432,7 +432,7 @@
 </div>
 
 <script>
-    const LOCAL_STORAGE_KEY = 'teen-patti-lux-gang-v3';
+    const LOCAL_STORAGE_KEY = 'teen-patti-preferences-v3';
     const ROOM_SNAPSHOT_PREFIX = 'teen-patti-room-';
     const PHASES = ['Betting Round 1', 'Betting Round 2', 'Betting Round 3', 'Showdown'];
     const HAND_STRENGTH = {
@@ -457,7 +457,7 @@
         turnSeconds: 30,
         houseRules: '',
         soundEnabled: false,
-        blindLimit: 2
+        blindLimit: 2 // Maximum blind actions allowed per hand before Chaal, All-in, or Fold is required.
     };
 
     let ably = null;
@@ -509,6 +509,22 @@
 
     function roomSnapshotKey(code) {
         return `${ROOM_SNAPSHOT_PREFIX}${code}`;
+    }
+
+    function createUniqueId(prefix) {
+        if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+            return `${prefix}_${window.crypto.randomUUID()}`;
+        }
+        return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+    }
+
+    function escapeHtml(value) {
+        return String(value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
     }
 
     function normalizeChipValues(source) {
@@ -672,7 +688,7 @@
         const key = `teen-patti-player-id:${code}:${trimmedName}`;
         let storedId = localStorage.getItem(key);
         if (!storedId) {
-            storedId = `player_${Math.random().toString(36).slice(2, 11)}`;
+            storedId = createUniqueId('player');
             localStorage.setItem(key, storedId);
         }
         return storedId;
@@ -715,7 +731,7 @@
 
     function logEvent(message, type) {
         gameState.logs.push({
-            id: `log_${Date.now()}_${Math.random().toString(16).slice(2, 8)}`,
+            id: createUniqueId('log'),
             message,
             type: type || 'info',
             timestamp: Date.now()
@@ -725,7 +741,7 @@
 
     function addChatMessage(text) {
         gameState.chat.push({
-            id: `chat_${Date.now()}_${Math.random().toString(16).slice(2, 8)}`,
+            id: createUniqueId('chat'),
             playerId: myClientId,
             author: myName,
             text,
@@ -912,7 +928,7 @@
             connectionInitialized = false;
             if (ably) ably.close();
             updateConnectionStatus('Connecting', 'info');
-            ably = new Ably.Realtime({ key: ablyKey, clientId: myClientId, recover: roomCode });
+            ably = new Ably.Realtime({ key: ablyKey, clientId: myClientId });
 
             ably.connection.on((stateChange) => {
                 const state = stateChange.current;
@@ -1052,7 +1068,7 @@
         const summary = `${winners.map((winner) => winner.name).join(', ')} won €${gameState.pot}${reason ? ` (${reason})` : ''}`;
         logEvent(summary, 'success');
         gameState.sessionHistory.unshift({
-            id: `hand_${gameState.handNumber}_${Date.now()}`,
+            id: createUniqueId(`hand_${gameState.handNumber}`),
             handNumber: gameState.handNumber,
             summary,
             pot: gameState.pot,
@@ -1265,7 +1281,9 @@
             if (!eligible.length) return;
             const sorted = [...eligible].sort(compareHands);
             const best = sorted[sorted.length - 1];
-            const tiedWinners = eligible.filter((player) => compareHands(player, best) === 0);
+            const tiedWinners = eligible
+                .filter((player) => compareHands(player, best) === 0)
+                .sort((left, right) => left.id.localeCompare(right.id));
             const splitAmount = Math.floor(sidePot.amount / tiedWinners.length);
             let remainder = sidePot.amount - (splitAmount * tiedWinners.length);
             tiedWinners.forEach((winner) => {
@@ -1393,7 +1411,7 @@
         if (myClientId !== gameState.adminId || !gameState.handActive || gameState.paused || gameState.phaseIndex === PHASES.length - 1) {
             return;
         }
-        if (Date.now() < gameState.actionDeadline) return;
+        if (Date.now() < (gameState.actionDeadline + 2000)) return;
         const currentPlayer = getCurrentPlayer();
         if (!currentPlayer || !canPlayerAct(currentPlayer)) return;
         currentPlayer.folded = true;
@@ -1428,7 +1446,7 @@
         gameState.logs.slice().reverse().forEach((entry) => {
             const item = document.createElement('div');
             item.className = 'log-item';
-            item.innerHTML = `<div>${entry.message}</div><div class="log-time">${formatTime(entry.timestamp)}</div>`;
+            item.innerHTML = `<div>${escapeHtml(entry.message)}</div><div class="log-time">${formatTime(entry.timestamp)}</div>`;
             container.appendChild(item);
         });
     }
@@ -1443,7 +1461,7 @@
         gameState.chat.slice().reverse().forEach((entry) => {
             const item = document.createElement('div');
             item.className = 'chat-item';
-            item.innerHTML = `<strong>${entry.author}</strong><div>${entry.text}</div><div class="chat-time">${formatTime(entry.timestamp)}</div>`;
+            item.innerHTML = `<strong>${escapeHtml(entry.author)}</strong><div>${escapeHtml(entry.text)}</div><div class="chat-time">${formatTime(entry.timestamp)}</div>`;
             container.appendChild(item);
         });
     }
@@ -1458,7 +1476,7 @@
         gameState.sessionHistory.forEach((entry) => {
             const item = document.createElement('div');
             item.className = 'history-item';
-            item.innerHTML = `<strong>Hand #${entry.handNumber}</strong><div>${entry.summary}</div><div class="log-time">${formatTime(entry.timestamp)}</div>`;
+            item.innerHTML = `<strong>Hand #${entry.handNumber}</strong><div>${escapeHtml(entry.summary)}</div><div class="log-time">${formatTime(entry.timestamp)}</div>`;
             container.appendChild(item);
         });
     }
@@ -1492,7 +1510,7 @@
             badge.innerHTML = `
                 <div class="player-top">
                     <div>
-                        <div class="player-name">#${rankMap[player.id]} ${player.name}${player.id === myClientId ? ' (You)' : ''}</div>
+                        <div class="player-name">#${rankMap[player.id]} ${escapeHtml(player.name)}${player.id === myClientId ? ' (You)' : ''}</div>
                         <div class="substats">💰 Wallet: €${player.wallet} &nbsp;|&nbsp; Pot Contribution: €${player.currentBet} &nbsp;|&nbsp; Wins: ${player.wins} &nbsp;|&nbsp; Win rate: ${calculateWinRate(player)}<br>📈 Chips Won: €${player.totalWon} &nbsp;|&nbsp; Chips Lost: €${player.totalLost}</div>
                     </div>
                     <div style="text-align:right;">${statusTokens.join(' ')}</div>
@@ -1520,10 +1538,10 @@
                     const showdownGrid = document.createElement('div');
                     showdownGrid.className = 'showdown-grid';
                     showdownGrid.innerHTML = `
-                        <select aria-label="Hand category for ${player.name}">
+                        <select aria-label="Hand category for ${escapeHtml(player.name)}">
                             ${Object.entries(HAND_LABELS).map(([value, label]) => `<option value="${value}" ${player.handCategory === value ? 'selected' : ''}>${label}</option>`).join('')}
                         </select>
-                        <input type="number" min="2" max="14" value="${player.handValue}" aria-label="Top card value for ${player.name}">
+                        <input type="number" min="2" max="14" value="${player.handValue}" aria-label="Top card value for ${escapeHtml(player.name)}">
                     `;
                     const [select, input] = showdownGrid.querySelectorAll('select, input');
                     select.onchange = (event) => updatePlayerHand(player.id, 'handCategory', event.target.value);
