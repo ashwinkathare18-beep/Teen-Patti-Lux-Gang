@@ -352,34 +352,37 @@ document.getElementById('blindActionBtn').innerText = `Blind (€1)`;
     }
   }
 
-  function hostResetHand() // ensure turn starts from first non-folded/non-broke player
-if (gameState.players[gameState.turnIndex]?.wallet < 1 || gameState.players[gameState.turnIndex]?.folded) {
-  advanceTurn();
-}{
-    if (myClientId !== gameState.adminId) return;
+function hostResetHand() {
+  if (myClientId !== gameState.adminId) return;
 
-    let brokePlayers = gameState.players.filter(p => p.wallet < 1);
-    if (brokePlayers.length > 0) {
-      alert(`Cannot start hand! Players need buy-in: ${brokePlayers.map(p => p.name).join(', ')}`);
-      return;
-    }
-
-    gameState.pot = 0;
-    gameState.minimumRequiredChaal = 2;
-    currentSelectedBet = 2;
-    gameState.players.forEach(p => {
-  p.folded = false;
-  p.blindsCount = 0;
-  p.hasSeen = false;
-  p.wallet -= 1;
-  gameState.pot += 1;
-});
-
-    gameState.turnIndex = 0;
-    gameState.handActive = true;
-    broadcastState();
+  let brokePlayers = gameState.players.filter(p => p.wallet < 1);
+  if (brokePlayers.length > 0) {
+    alert(`Cannot start hand! Players need buy-in: ${brokePlayers.map(p => p.name).join(', ')}`);
+    return;
   }
 
+  gameState.pot = 0;
+  gameState.minimumRequiredChaal = 2;
+  currentSelectedBet = 2;
+
+  gameState.players.forEach(p => {
+    p.folded = false;
+    p.blindsCount = 0;
+    p.hasSeen = false;
+    p.wallet -= 1;
+    gameState.pot += 1;
+  });
+
+  gameState.turnIndex = 0;
+  gameState.handActive = true;
+
+  // ensure valid first turn
+  if (gameState.players[gameState.turnIndex]?.wallet < 1 || gameState.players[gameState.turnIndex]?.folded) {
+    advanceTurn();
+  }
+
+  broadcastState();
+}
  function submitMove(moveType) {
   let currentPlayer = gameState.players[gameState.turnIndex];
   if (!currentPlayer || currentPlayer.id !== myClientId) return;
