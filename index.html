@@ -211,10 +211,7 @@
         }
         members.forEach(m => {
           if (!gameState.players.find(p => p.id === m.clientId)) {
-            gameState.players.push({
-  id: m.clientId, name: m.data.name, wallet: 0, totalInjected: 0,
-  blindsCount: 0, hasSeen: false, folded: false, wins: 0, losses: 0
-});
+     gameState.players.push({ id, name, wallet: 0, totalInjected: 0, blindsCount: 0, hasSeen: false, folded: false, wins: 0, losses: 0 });
 
           }
         });
