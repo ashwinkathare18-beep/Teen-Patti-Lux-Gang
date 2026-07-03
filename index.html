@@ -234,7 +234,7 @@
 
   function syncJoiner(id, name) {
     if (!gameState.players.find(p => p.id === id)) {
-      gameState.players.push({ id, name, wallet: 0, totalInjected: 0, blindsCount: 0, folded: false, wins: 0, losses: 0 });
+gameState.players.push({ id, name, wallet: 0, totalInjected: 0, blindsCount: 0, hasSeen: false, folded: false, wins: 0, losses: 0 });
       broadcastState();
     }
   }
