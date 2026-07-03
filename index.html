@@ -1,188 +1,153 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Live Teen Patti Companion Ultimate</title>
-  <script src="https://cdn.ably.com/lib/ably.min-1.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 15px; }
-    .container { max-width: 500px; margin: 0 auto; }
-    .card { background: #1e293b; padding: 20px; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border: 1px solid #334155; }
-    h1, h2, h3 { margin-top: 0; color: #fbbf24; text-align: center; }
-    .pot-display { font-size: 32px; text-align: center; font-weight: bold; color: #4ade80; background: #064e3b; padding: 15px; border-radius: 8px; border: 2px solid #059669; }
-    .input-group { margin-bottom: 12px; display: flex; flex-direction: column; gap: 5px; }
-    input { background: #334155; color: #fff; border: 1px solid #475569; padding: 10px; border-radius: 6px; font-size: 16px; }
-    button { background: #2563eb; color: white; border: none; padding: 12px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 16px; width: 100%; transition: background 0.2s; }
-    button:disabled { background: #475569; cursor: not-allowed; opacity: 0.3; }
-    button.blind-btn { background: #d97706; }
-    button.chaal-btn { background: #059669; }
-    button.fold-btn { background: #dc2626; }
-
-    .bet-tabs { display: flex; gap: 8px; margin-bottom: 12px; }
-    .bet-tab { background: #334155; border: 2px solid #475569; padding: 10px; border-radius: 8px; font-weight: bold; text-align: center; flex: 1; cursor: pointer; transition: all 0.2s; }
-    .bet-tab.selected { background: #2563eb; border-color: #3b82f6; color: #fff; transform: scale(1.03); }
-    .bet-tab.disabled-tab { opacity: 0.15; cursor: not-allowed; background: #0f172a; border-color: #1e293b; color: #475569; }
-
-    .player-badge { display: flex; justify-content: space-between; padding: 12px; background: #334155; border-radius: 6px; margin-bottom: 8px; align-items: center; border: 2px solid transparent; }
-    .active-turn { border: 2px solid #fbbf24; background: #1e3a8a; }
-    .history-text { font-size: 11px; color: #94a3b8; margin-top: 4px; font-family: monospace; }
-    .status-bar { text-align: center; color: #94a3b8; font-weight: bold; font-size: 16px; margin-top: 5px; background: #1e293b; padding: 10px; border-radius: 6px; border: 1px solid #475569; }
-    .hidden { display: none; }
-    .flex-row { display: flex; gap: 10px; margin-top: 10px; }
-    .admin-crown-btn { background: #fbbf24; color: #000; font-size: 11px; padding: 4px 8px; width: auto; border-radius: 4px; font-weight: bold; margin-bottom: 4px; border: none; cursor: pointer; }
-    .admin-buyin-btn { background: #6b7280; color: #fff; font-size: 11px; padding: 4px 8px; width: auto; border-radius: 4px; margin-right: 4px; border: 1px solid #4b5563; }
-    .admin-buyin-btn:hover { background: #4b5563; }
-    .badge-left { display: flex; flex-direction: column; }
-    .controls-right { display: flex; flex-direction: column; align-items: flex-end; }
-
-    .profit-pos { color: #4ade80; font-weight: bold; }
-    .profit-neg { color: #f87171; font-weight: bold; }
-
-    .admin-toggle-link { text-align: center; font-size: 12px; margin-top: 15px; color: #64748b; cursor: pointer; text-decoration: underline; }
-
-    .split-pot-panel { background: #0f172a; border: 1px dashed #4b5563; padding: 10px; border-radius: 6px; margin-top: 10px; display: flex; flex-direction: column; gap: 5px; width: 100%; }
-    .split-row { display: flex; align-items: center; gap: 8px; font-size: 13px; }
-  </style>
-</head>
-<body>
-
-<div class="container">
-  <h1>♠ Teen Patti Companion Ultimate ♠</h1>
-
-  <div id="setupScreen" class="card">
-    <h2>Join a Table</h2>
-    <div class="input-group">
-      <label>Your Name</label>
-      <input type="text" id="playerNameInput" placeholder="Enter name..." />
-    </div>
-    <div class="input-group">
-      <label>Table Code</label>
-      <input type="text" id="tableCodeInput" placeholder="e.g. GOLD77" />
-    </div>
-
-    <div class="input-group" id="adminPassGroup" style="display:none; border-left: 3px solid #fbbf24; padding-left: 10px; margin-top: 10px;">
-      <label style="color:#fbbf24; font-weight: bold;">Admin Master Passcode</label>
-      <input type="password" id="adminPassInput" placeholder="Enter security key..." />
-    </div>
-
-    <button onclick="connectToTable()" style="margin-top:10px;">Enter Table</button>
-    <div class="admin-toggle-link" onclick="toggleAdminField()" id="toggleText">Login as Table Admin</div>
-  </div>
-
-  <div id="gameScreen" class="hidden">
-    <div class="card" style="padding: 10px 20px;">
-      <h3 style="margin: 0; text-align: left; font-size:14px; color:#94a3b8;">
-        Table Code: <span id="displayTableCode" style="color:#fff;"></span>
-        <span id="adminBadge" style="color:#fbbf24; margin-left:10px; font-size:12px; display:none;">(★ You are Admin)</span>
-      </h3>
-    </div>
-
-    <div class="status-bar" id="turnIndicator">Waiting for game initiation...</div>
-    <br />
-
-    <div class="card">
-      <h3>Current Pot</h3>
-      <div class="pot-display">€<span id="potValue">0</span></div>
-      <div id="minChaalNotice" style="text-align: center; margin-top: 8px; font-size: 13px; color: #cbd5e1; font-weight: 500;">Minimum Chaal Requirement: €2</div>
-
-      <div id="adminSplitPanel" class="split-pot-panel hidden">
-        <span style="font-size: 12px; color: #fbbf24; font-weight: bold;">Split Pot Matrix:</span>
-        <div id="splitCheckboxes"></div>
-        <button onclick="adminExecuteSplit()" style="padding: 4px; font-size: 12px; margin-top: 5px; background: #059669;">Execute Selected Split</button>
-      </div>
-    </div>
-
-    <div id="actionPad" class="card">
-      <h3>Your Turn Actions</h3>
-      <label style="display:block; margin-bottom: 6px; font-size: 14px; color: #cbd5e1;">Select Chaal Amount:</label>
-      <div class="bet-tabs">
-        <div class="bet-tab selected" onclick="selectBetTab(2)" id="tab-2">€2</div>
-        <div class="bet-tab" onclick="selectBetTab(3)" id="tab-3">€3</div>
-        <div class="bet-tab" onclick="selectBetTab(4)" id="tab-4">€4</div>
-        <div class="bet-tab" onclick="selectBetTab(5)" id="tab-5">€5</div>
-      </div>
-
-      <div class="flex-row">
-        <button id="blindActionBtn" class="blind-btn" onclick="submitMove('Blind')">Blind (€1)</button>
-        <button id="chaalActionBtn" class="chaal-btn" onclick="submitMove('Chaal')">Chaal</button>
-        <button class="fold-btn" onclick="submitMove('Fold')">Fold</button>
-      </div>
-    </div>
-
-    <div class="card">
-      <h3>Players & Live Session Ledger</h3>
-      <div id="playerList"></div>
-
-      <button id="startHandBtn" style="background:#7c3aed; margin-top:15px; display:none;" onclick="hostResetHand()">♥ Start Next Hand ♥</button>
-      <button id="downloadExcelBtn" style="background:#0284c7; margin-top:8px; display:none;" onclick="exportToExcel()">📊 Download Excel Summary</button>
-    </div>
-  </div>
-</div>
-
 <script>
-const ABLY_API_KEY = 'fnVQhw.H7cEiA:Ipz3KJ6W9-CCUl4qGuYTTSA-rkCk5gBoFZfIeDUdrQQ';
-const ADMIN_SECRET_KEY = 'CHIPS77';
+  const ABLY_API_KEY = 'fnVQhw.H7cEiA:Ipz3KJ6W9-CCUl4qGuYTTSA-rkCk5gBoFZfIeDUdrQQ';
+  const ADMIN_SECRET_KEY = 'CHIPS77';
 
-let ably, channel;
-let roomCode = "";
-let myClientId = "";
-let myName = "";
-let isAdminLoggingIn = false;
+  let ably, channel;
+  let roomCode = "";
+  let myClientId = "";
+  let myName = "";
+  let currentSelectedBet = 2;
+  let isAdminLoggingIn = false;
 
-let gameState = { adminId: "", players: [], pot: 0, turnIndex: 0, handActive: false, minimumRequiredChaal: 2 };
+  let gameState = {
+    adminId: "",
+    players: [], // { id, name, wallet, totalInjected, blindsCount, hasSeen, folded, wins, losses }
+    pot: 0,
+    turnIndex: 0,
+    handActive: false,
+    minimumRequiredChaal: 2
+  };
 
-function toggleAdminField() {
-  isAdminLoggingIn = !isAdminLoggingIn;
-  const group = document.getElementById('adminPassGroup');
-  const text = document.getElementById('toggleText');
-  group.style.display = isAdminLoggingIn ? "block" : "none";
-  text.innerText = isAdminLoggingIn ? "Log in as Standard Player instead" : "Login as Table Admin";
-}
+  function toggleAdminField() {
+    isAdminLoggingIn = !isAdminLoggingIn;
+    const group = document.getElementById('adminPassGroup');
+    const text = document.getElementById('toggleText');
+    const nameInput = document.getElementById('playerNameInput');
 
-function connectToTable() {
-  myName = document.getElementById('playerNameInput').value.trim();
-  roomCode = document.getElementById('tableCodeInput').value.trim().toUpperCase();
-  if (!myName || !roomCode) return alert("Please provide both your Name and a Table Code.");
-
-  if (isAdminLoggingIn) {
-    const enteredPass = document.getElementById('adminPassInput').value.trim();
-    if (enteredPass !== ADMIN_SECRET_KEY) return alert("Incorrect Admin Master Passcode.");
+    if (isAdminLoggingIn) {
+      group.style.display = "block";
+      text.innerText = "Log in as Standard Player instead";
+      if (!nameInput.value.trim()) nameInput.value = "Admin Host";
+    } else {
+      group.style.display = "none";
+      text.innerText = "Login as Table Admin";
+    }
   }
 
-  myClientId = 'id_' + Math.random().toString(36).slice(2, 11);
-  ably = new Ably.Realtime({ key: ABLY_API_KEY, clientId: myClientId });
-  channel = ably.channels.get('teen-patti-' + roomCode);
+  function connectToTable() {
+    myName = document.getElementById('playerNameInput').value.trim();
+    roomCode = document.getElementById('tableCodeInput').value.trim().toUpperCase();
 
-  channel.subscribe('stateUpdate', (msg) => {
-    gameState = msg.data || gameState;
-    updateGameUI();
-  });
-
-  channel.presence.enter({ name: myName }, (err) => {
-    if (err) return alert("Unable to join table: " + (err.message || ""));
-
-    if (isAdminLoggingIn && !gameState.adminId) {
-      gameState.adminId = myClientId;
-      gameState.players = gameState.players || [];
-      if (!gameState.players.find(p => p.id === myClientId)) {
-        gameState.players.push({ id: myClientId, name: myName, wallet: 0, totalInjected: 0, blindsCount: 0, hasSeen: false, folded: false, wins: 0, losses: 0 });
-      }
-      broadcastState();
+    if (!myName || !roomCode) {
+      alert("Please provide both your Name and a Table Code.");
+      return;
     }
 
-    document.getElementById('setupScreen').classList.add('hidden');
-    document.getElementById('displayTableCode').innerText = roomCode;
-    document.getElementById('gameScreen').classList.remove('hidden');
-  });
-}
+    if (isAdminLoggingIn) {
+      const enteredPass = document.getElementById('adminPassInput').value.trim();
+      if (enteredPass !== ADMIN_SECRET_KEY) {
+        alert("Incorrect Admin Master Passcode. Authorization denied.");
+        return;
+      }
+    }
 
-function broadcastState() {
-  if (!channel) return;
-  if (myClientId !== gameState.adminId) return;
-  channel.publish('stateUpdate', gameState);
-}
+    if (ABLY_API_KEY === 'YOUR_ABLY_API_KEY_HERE') {
+      alert("Please update ABLY_API_KEY in index.html first.");
+      return;
+    }
+
+    myClientId = 'id_' + Math.random().toString(36).slice(2, 11);
+    ably = new Ably.Realtime({ key: ABLY_API_KEY, clientId: myClientId, echoMessages: false });
+
+    ably.connection.on((stateChange) => {
+      if (stateChange.current === "failed") {
+        alert("Ably connection failed. Check API key/internet.");
+      }
+    });
+
+    channel = ably.channels.get('teen-patti-' + roomCode);
+
+    // Read shared state
+    channel.subscribe('stateUpdate', (message) => {
+      gameState = message.data;
+      updateGameUI();
+    });
+
+    // Admin is sole writer for player list
+    channel.subscribe('joinRequest', (msg) => {
+      if (myClientId !== gameState.adminId) return;
+
+      const id = msg?.data?.id;
+      const name = msg?.data?.name || "Player";
+      if (!id) return;
+
+      if (!gameState.players.find(p => p.id === id)) {
+        gameState.players.push({
+          id,
+          name,
+          wallet: 0,
+          totalInjected: 0,
+          blindsCount: 0,
+          hasSeen: false,
+          folded: false,
+          wins: 0,
+          losses: 0
+        });
+        broadcastState();
+      }
+    });
+
+    channel.presence.enter({ name: myName }, (err) => {
+      if (err) {
+        alert("Unable to join table: " + (err.message || ""));
+        return;
+      }
+
+      // Admin bootstrap once
+      if (isAdminLoggingIn && !gameState.adminId) {
+        gameState.adminId = myClientId;
+        if (!gameState.players.find(p => p.id === myClientId)) {
+          gameState.players.push({
+            id: myClientId,
+            name: myName,
+            wallet: 0,
+            totalInjected: 0,
+            blindsCount: 0,
+            hasSeen: false,
+            folded: false,
+            wins: 0,
+            losses: 0
+          });
+        }
+        broadcastState();
+      } else {
+        // Non-admin asks admin to add player
+        channel.publish('joinRequest', { id: myClientId, name: myName });
+      }
+
+      document.getElementById('setupScreen').classList.add('hidden');
+      document.getElementById('displayTableCode').innerText = roomCode;
+      document.getElementById('gameScreen').classList.remove('hidden');
+      updateGameUI();
+    });
+  }
+
+  function broadcastState() {
+    if (!channel) return;
+    if (myClientId !== gameState.adminId) return; // only admin publishes authoritative state
+    channel.publish('stateUpdate', gameState, (err) => {
+      if (err) console.error("publish error:", err);
+    });
+  }
+
+  function selectBetTab(val) {
+    if (!gameState.handActive) return;
+    if (val < gameState.minimumRequiredChaal) return;
+    currentSelectedBet = val;
+    for (let i = 2; i <= 5; i++) document.getElementById(`tab-${i}`).classList.remove('selected');
+    document.getElementById(`tab-${val}`).classList.add('selected');
+  }
+
   function updateGameUI() {
     document.getElementById('potValue').innerText = gameState.pot;
     document.getElementById('minChaalNotice').innerText = `Minimum Chaal Requirement: €${gameState.minimumRequiredChaal}`;
@@ -191,12 +156,12 @@ function broadcastState() {
     listContainer.innerHTML = '';
     const isAdmin = (myClientId === gameState.adminId);
 
-    if (isAdmin) {
-      document.getElementById('adminBadge').style.display = "inline";
-      document.getElementById('startHandBtn').style.display = "block";
-      document.getElementById('downloadExcelBtn').style.display = "block";
-      document.getElementById('adminSplitPanel').classList.remove('hidden');
+    document.getElementById('adminBadge').style.display = isAdmin ? "inline" : "none";
+    document.getElementById('startHandBtn').style.display = isAdmin ? "block" : "none";
+    document.getElementById('downloadExcelBtn').style.display = isAdmin ? "block" : "none";
 
+    if (isAdmin) {
+      document.getElementById('adminSplitPanel').classList.remove('hidden');
       const checkboxContainer = document.getElementById('splitCheckboxes');
       checkboxContainer.innerHTML = '';
       gameState.players.forEach(p => {
@@ -212,9 +177,15 @@ function broadcastState() {
       if (checkboxContainer.innerHTML === '') {
         checkboxContainer.innerHTML = '<span style="color:#64748b; font-size:11px;">No active hand running</span>';
       }
+    } else {
+      document.getElementById('adminSplitPanel').classList.add('hidden');
     }
 
-    if (gameState.players.length === 0) return;
+    if (gameState.players.length === 0) {
+      document.getElementById('turnIndicator').innerText = "Waiting for players...";
+      return;
+    }
+
     let activePlayerObj = gameState.players[gameState.turnIndex];
 
     if (gameState.handActive && activePlayerObj) {
@@ -224,14 +195,17 @@ function broadcastState() {
       document.getElementById('turnIndicator').innerText = "Waiting for Admin to credit buy-ins / start next hand...";
       document.getElementById('turnIndicator').style.color = "#94a3b8";
     }
-document.getElementById('blindActionBtn').innerText = `Blind (€1)`;
+
+    document.getElementById('blindActionBtn').innerText = `Blind (€1)`;
 
     for (let i = 2; i <= 5; i++) {
       let el = document.getElementById(`tab-${i}`);
       if (i < gameState.minimumRequiredChaal) {
         el.classList.add('disabled-tab');
         el.classList.remove('selected');
-      } else el.classList.remove('disabled-tab');
+      } else {
+        el.classList.remove('disabled-tab');
+      }
     }
 
     if (currentSelectedBet < gameState.minimumRequiredChaal) currentSelectedBet = gameState.minimumRequiredChaal;
@@ -243,10 +217,10 @@ document.getElementById('blindActionBtn').innerText = `Blind (€1)`;
     gameState.players.forEach((p) => {
       const isCurrent = (gameState.handActive && activePlayerObj && activePlayerObj.id === p.id);
       const statusLabel = p.folded ? "FOLDED" : (p.blindsCount < 2 ? `Blinds left: ${2 - p.blindsCount}` : "Chaal Only");
-      let netProfit = p.wallet - p.totalInjected;
-      let profitClass = netProfit >= 0 ? 'profit-pos' : 'profit-neg';
-      let profitSign = netProfit >= 0 ? '+€' : '-€';
-      let absoluteProfit = Math.abs(netProfit);
+      const netProfit = p.wallet - p.totalInjected;
+      const profitClass = netProfit >= 0 ? 'profit-pos' : 'profit-neg';
+      const profitSign = netProfit >= 0 ? '+€' : '-€';
+      const absoluteProfit = Math.abs(netProfit);
 
       const div = document.createElement('div');
       div.className = `player-badge ${isCurrent ? 'active-turn' : ''}`;
@@ -280,14 +254,17 @@ document.getElementById('blindActionBtn').innerText = `Blind (€1)`;
       listContainer.appendChild(div);
     });
 
+    // Prevent "frozen screen" feeling: keep pad interactive but disable buttons when not turn
     if (gameState.handActive && activePlayerObj && activePlayerObj.id === myClientId) {
       document.getElementById('actionPad').style.opacity = "1";
       document.getElementById('actionPad').style.pointerEvents = "auto";
       document.getElementById('blindActionBtn').disabled = (activePlayerObj.blindsCount >= 2 || activePlayerObj.hasSeen === true);
       document.getElementById('chaalActionBtn').disabled = false;
     } else {
-      document.getElementById('actionPad').style.opacity = "0.4";
-      document.getElementById('actionPad').style.pointerEvents = "none";
+      document.getElementById('actionPad').style.opacity = "0.85";
+      document.getElementById('actionPad').style.pointerEvents = "auto";
+      document.getElementById('blindActionBtn').disabled = true;
+      document.getElementById('chaalActionBtn').disabled = true;
     }
   }
 
@@ -301,69 +278,73 @@ document.getElementById('blindActionBtn').innerText = `Blind (€1)`;
     }
   }
 
-function hostResetHand() {
-  if (myClientId !== gameState.adminId) return;
+  function hostResetHand() {
+    if (myClientId !== gameState.adminId) return;
 
-  let brokePlayers = gameState.players.filter(p => p.wallet < 1);
-  if (brokePlayers.length > 0) {
-    alert(`Cannot start hand! Players need buy-in: ${brokePlayers.map(p => p.name).join(', ')}`);
-    return;
-  }
+    let brokePlayers = gameState.players.filter(p => p.wallet < 1);
+    if (brokePlayers.length > 0) {
+      alert(`Cannot start hand! Players need buy-in: ${brokePlayers.map(p => p.name).join(', ')}`);
+      return;
+    }
 
-  gameState.pot = 0;
-  gameState.minimumRequiredChaal = 2;
-  currentSelectedBet = 2;
+    gameState.pot = 0;
+    gameState.minimumRequiredChaal = 2;
+    currentSelectedBet = 2;
 
-  gameState.players.forEach(p => {
-    p.folded = false;
-    p.blindsCount = 0;
-    p.hasSeen = false;
-    p.wallet -= 1;
-    gameState.pot += 1;
-  });
+    gameState.players.forEach(p => {
+      p.folded = false;
+      p.blindsCount = 0;
+      p.hasSeen = false;
+      p.wallet -= 1;
+      gameState.pot += 1;
+    });
 
-  gameState.turnIndex = 0;
-  gameState.handActive = true;
+    gameState.turnIndex = 0;
+    gameState.handActive = true;
 
-  if (gameState.players[gameState.turnIndex]?.wallet < 1 || gameState.players[gameState.turnIndex]?.folded) {
-    advanceTurn();
-  }
+    // safety
+    if (gameState.players[gameState.turnIndex]?.wallet < 1 || gameState.players[gameState.turnIndex]?.folded) {
+      advanceTurn();
+    }
 
-  broadcastState();
-}
- function submitMove(moveType) {
-  let currentPlayer = gameState.players[gameState.turnIndex];
-  if (!currentPlayer || currentPlayer.id !== myClientId) return;
-
-  let betSize = 0;
-
-  if (moveType === 'Blind') {
-    if (currentPlayer.hasSeen || currentPlayer.blindsCount >= 2) return;
-    betSize = 1; // blind always €1
-    currentPlayer.blindsCount++;
-  } else if (moveType === 'Chaal') {
-    betSize = currentSelectedBet;
-    currentPlayer.hasSeen = true; // disable blind only for this player
-    if (betSize > gameState.minimumRequiredChaal) gameState.minimumRequiredChaal = betSize;
-  } else if (moveType === 'Fold') {
-    currentPlayer.folded = true;
-  }
-
-  if (moveType !== 'Fold' && currentPlayer.wallet < betSize) {
-    alert("Insufficient chips! Ask Admin to add coins.");
-    return;
-  }
-
-  currentPlayer.wallet -= betSize;
-  gameState.pot += betSize;
-
-  let activePlayers = gameState.players.filter(p => !p.folded);
-  if (activePlayers.length === 1) executeVictoryDataCleanup(activePlayers[0].id);
-  else {
-    advanceTurn();
     broadcastState();
   }
-}
+
+  function submitMove(moveType) {
+    let currentPlayer = gameState.players[gameState.turnIndex];
+    if (!currentPlayer || currentPlayer.id !== myClientId) return;
+    if (!gameState.handActive) return;
+
+    let betSize = 0;
+
+    if (moveType === 'Blind') {
+      if (currentPlayer.hasSeen || currentPlayer.blindsCount >= 2) return;
+      betSize = 1; // blind always €1
+      currentPlayer.blindsCount++;
+    } else if (moveType === 'Chaal') {
+      betSize = currentSelectedBet;
+      currentPlayer.hasSeen = true; // blind disabled only for this player
+      if (betSize > gameState.minimumRequiredChaal) gameState.minimumRequiredChaal = betSize;
+    } else if (moveType === 'Fold') {
+      currentPlayer.folded = true;
+    }
+
+    if (moveType !== 'Fold' && currentPlayer.wallet < betSize) {
+      alert("Insufficient chips! Ask Admin to add coins.");
+      return;
+    }
+
+    currentPlayer.wallet -= betSize;
+    gameState.pot += betSize;
+
+    let activePlayers = gameState.players.filter(p => !p.folded);
+    if (activePlayers.length === 1) {
+      executeVictoryDataCleanup(activePlayers[0].id);
+    } else {
+      advanceTurn();
+      broadcastState();
+    }
+  }
 
   function adminDeclareWinner(winnerId) {
     if (myClientId !== gameState.adminId) return;
@@ -374,10 +355,8 @@ function hostResetHand() {
     const winner = gameState.players.find(p => p.id === winnerId);
     if (!winner) return;
 
-    let totalPotWon = gameState.pot;
-    winner.wallet += totalPotWon;
+    winner.wallet += gameState.pot;
     winner.wins += 1;
-
     gameState.players.forEach(p => { if (p.id !== winnerId) p.losses += 1; });
 
     gameState.pot = 0;
@@ -406,7 +385,9 @@ function hostResetHand() {
       if (checkedIds.includes(p.id)) {
         p.wallet += share;
         p.wins += 1;
-      } else p.losses += 1;
+      } else {
+        p.losses += 1;
+      }
     });
 
     gameState.pot = 0;
@@ -414,27 +395,27 @@ function hostResetHand() {
     broadcastState();
   }
 
- function advanceTurn() {
-  if (!gameState.players || gameState.players.length === 0) return;
+  function advanceTurn() {
+    if (!gameState.players || gameState.players.length === 0) return;
 
-  // only players still in hand
-  const activeIds = gameState.players.filter(p => !p.folded).map(p => p.id);
-  if (activeIds.length <= 1) return;
+    const activePlayers = gameState.players.filter(p => !p.folded && p.wallet >= 1);
+    if (activePlayers.length <= 1) return;
 
-  let next = gameState.turnIndex;
-  let attempts = 0;
-  const total = gameState.players.length;
+    let next = gameState.turnIndex;
+    let attempts = 0;
+    const total = gameState.players.length;
 
-  do {
-    next = (next + 1) % total;
-    attempts++;
-  } while (
-    attempts <= total &&
-    (gameState.players[next].folded === true || gameState.players[next].wallet < 1)
-  );
+    do {
+      next = (next + 1) % total;
+      attempts++;
+    } while (
+      attempts <= total &&
+      (gameState.players[next].folded === true || gameState.players[next].wallet < 1)
+    );
 
-  gameState.turnIndex = next;
-}
+    gameState.turnIndex = next;
+  }
+
   function exportToExcel() {
     if (gameState.players.length === 0) return;
 
@@ -453,5 +434,3 @@ function hostResetHand() {
     XLSX.writeFile(workbook, `Teen_Patti_Table_${roomCode}_Report.xlsx`);
   }
 </script>
-</body>
-</html>
