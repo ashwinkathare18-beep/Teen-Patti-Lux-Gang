@@ -179,37 +179,39 @@
   }
 
   myClientId = 'id_' + Math.random().toString(36).substr(2, 9);
-  ably = new Ably.Realtime({ key: ABLY_API_KEY, clientId: myClientId });
+  ably = new Ably.Realtime({
+    key: ABLY_API_KEY,
+    clientId: myClientId,
+    echoMessages: false
+  });
+
+  ably.connection.on((s) => {
+    console.log("ABLY STATE:", s.current, s.reason ? s.reason.message : "");
+    if (s.current === "failed") {
+      alert("Ably failed: " + (s.reason?.message || "check key restrictions"));
+    }
+  });
+
   channel = ably.channels.get('teen-patti-' + roomCode);
 
-  // 1) Always consume server state only
+  // Receive shared state
   channel.subscribe('stateUpdate', (message) => {
     gameState = message.data;
     updateGameUI();
   });
 
-  // 2) Enter presence
-  channel.presence.enter({ name: myName }, (err) => {
-    if (err) {
-      alert("Presence enter failed: " + (err.message || ""));
-      return;
-    }
-
-    // 3) Request admin to add me (do NOT mutate shared state locally)
-    channel.publish('joinRequest', { id: myClientId, name: myName });
-  });
-
-  // 4) Admin handles join requests and is ONLY writer
+  // Admin handles join requests (single writer model)
   channel.subscribe('joinRequest', (msg) => {
     if (myClientId !== gameState.adminId) return;
 
-    const { id, name } = msg.data || {};
+    const id = msg?.data?.id;
+    const name = msg?.data?.name || "Player";
     if (!id) return;
 
     if (!gameState.players.find(p => p.id === id)) {
       gameState.players.push({
         id,
-        name: name || "Player",
+        name,
         wallet: 0,
         totalInjected: 0,
         blindsCount: 0,
@@ -222,10 +224,17 @@
     }
   });
 
-  // 5) If admin login and no admin exists yet, claim admin once
-  setTimeout(() => {
+  // Enter presence then request join
+  channel.presence.enter({ name: myName }, (err) => {
+    if (err) {
+      alert("Unable to join table presence: " + (err.message || ""));
+      return;
+    }
+
+    // If admin login and no admin exists yet, claim admin and initialize self
     if (isAdminLoggingIn && !gameState.adminId) {
       gameState.adminId = myClientId;
+
       if (!gameState.players.find(p => p.id === myClientId)) {
         gameState.players.push({
           id: myClientId,
@@ -240,8 +249,11 @@
         });
       }
       broadcastState();
+    } else {
+      // normal player asks admin to add them
+      channel.publish('joinRequest', { id: myClientId, name: myName });
     }
-  }, 600);
+  });
 
   document.getElementById('setupScreen').classList.add('hidden');
   document.getElementById('displayTableCode').innerText = roomCode;
