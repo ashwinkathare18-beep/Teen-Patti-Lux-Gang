@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Teen Patti Companion — Final Turn Fix</title>
+  <title>Teen Patti Companion — FINAL HOTFIX</title>
 
   <script src="https://cdn.ably.com/lib/ably.min-1.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -46,8 +46,8 @@
 <body>
   <div class="wrap">
     <h1>♠ Teen Patti Companion Ultimate ♠</h1>
-    <div class="topline">BUILD: TP-FINAL-TURN-FIX-2026-07-03</div>
-    <div class="muted">Presence-free + Admin bootstrap lock + turn controls fixed</div>
+    <div class="topline">BUILD: TP-FINAL-HOTFIX-LAST-2026-07-03</div>
+    <div class="muted">Presence-free + admin sync + player turn hotfix</div>
 
     <div id="setupScreen" class="card">
       <h2>Join Table</h2>
@@ -115,7 +115,7 @@
   </div>
 
   <script>
-    console.log("TP-FINAL-TURN-FIX-LOADED");
+    console.log("TP-FINAL-HOTFIX-LOADED");
 
     const ABLY_API_KEY = 'fnVQhw.H7cEiA:Ipz3KJ6W9-CCUl4qGuYTTSA-rkCk5gBoFZfIeDUdrQQ';
     const ADMIN_SECRET_KEY = 'CHIPS77';
@@ -180,7 +180,14 @@
       channel.subscribe("stateUpdate", (msg) => {
         if (!msg?.data) return;
         if (isAdminLoggingIn && isBootstrappingAdmin && gameState.adminId === myClientId) return;
+
         gameState = msg.data;
+
+        // HOTFIX normalize selected bet after every sync
+        if (currentSelectedBet < (gameState.minimumRequiredChaal || 2)) {
+          currentSelectedBet = gameState.minimumRequiredChaal || 2;
+        }
+
         updateGameUI();
       });
 
@@ -265,9 +272,14 @@
       const activePlayerObj = gameState.players[gameState.turnIndex];
       const myTurn = !!(gameState.handActive && activePlayerObj && activePlayerObj.id === myClientId);
       if (!myTurn) return;
-      if (val < gameState.minimumRequiredChaal) return;
+
+      const min = gameState.minimumRequiredChaal || 2;
+      if (val < min) return;
+
       currentSelectedBet = val;
-      for (let i = 2; i <= 5; i++) document.getElementById(`tab-${i}`).classList.remove("sel");
+      for (let i = 2; i <= 5; i++) {
+        document.getElementById(`tab-${i}`).classList.remove("sel");
+      }
       document.getElementById(`tab-${val}`).classList.add("sel");
     }
 
@@ -300,14 +312,17 @@
         document.getElementById("turnIndicator").style.color = "#94a3b8";
       }
 
-      if (currentSelectedBet < gameState.minimumRequiredChaal) currentSelectedBet = gameState.minimumRequiredChaal;
+      if (currentSelectedBet < (gameState.minimumRequiredChaal || 2)) {
+        currentSelectedBet = gameState.minimumRequiredChaal || 2;
+      }
+
       const myTurn = !!(gameState.handActive && activePlayerObj && activePlayerObj.id === myClientId);
 
       for (let i = 2; i <= 5; i++) {
         const tab = document.getElementById(`tab-${i}`);
         tab.classList.remove("sel", "dis");
-        if (!myTurn || i < gameState.minimumRequiredChaal) tab.classList.add("dis");
-        if (i === currentSelectedBet && myTurn && i >= gameState.minimumRequiredChaal) tab.classList.add("sel");
+        if (!myTurn || i < (gameState.minimumRequiredChaal || 2)) tab.classList.add("dis");
+        if (i === currentSelectedBet && myTurn && i >= (gameState.minimumRequiredChaal || 2)) tab.classList.add("sel");
       }
 
       gameState.players.forEach((p) => {
@@ -350,11 +365,16 @@
       }
 
       if (myTurn && myPlayer) {
-        document.getElementById("blindActionBtn").disabled = (myPlayer.hasSeen || myPlayer.blindsCount >= 2 || myPlayer.wallet < 1);
-        document.getElementById("chaalActionBtn").disabled = (myPlayer.wallet < currentSelectedBet);
+        const canBlind = (!myPlayer.hasSeen && myPlayer.blindsCount < 2 && myPlayer.wallet >= 1);
+        const canChaal = (myPlayer.wallet >= currentSelectedBet);
+
+        document.getElementById("blindActionBtn").disabled = !canBlind;
+        document.getElementById("chaalActionBtn").disabled = !canChaal;
+        document.getElementById("actionPad").style.opacity = "1";
       } else {
         document.getElementById("blindActionBtn").disabled = true;
         document.getElementById("chaalActionBtn").disabled = true;
+        document.getElementById("actionPad").style.opacity = "0.85";
       }
     }
 
@@ -391,7 +411,6 @@
       const adminIdx = gameState.players.findIndex(p => p.id === gameState.adminId);
       gameState.turnIndex = adminIdx >= 0 ? adminIdx : 0;
       gameState.handActive = true;
-
       broadcastState();
     }
 
@@ -402,7 +421,7 @@
       let bet = 0;
       if (moveType === "Blind") {
         if (p.hasSeen || p.blindsCount >= 2) return;
-        bet = 1;
+        bet = 1; // fixed: independent of selected tab
         p.blindsCount++;
       } else if (moveType === "Chaal") {
         bet = currentSelectedBet;
@@ -441,7 +460,6 @@
         gameState.turnIndex = (gameState.turnIndex + 1) % n;
         attempts++;
         const p = gameState.players[gameState.turnIndex];
-
         if (!p.folded && p.wallet >= 1) return;
       } while (attempts <= n);
 
