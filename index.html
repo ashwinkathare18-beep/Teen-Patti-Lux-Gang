@@ -189,18 +189,14 @@
 
     channel.subscribe('stateUpdate', (message) => {
       gameState = message.data;
-      if (isAdminLoggingIn && gameState.adminId !== myClientId) {
-        gameState.adminId = myClientId;
-        broadcastState();
-      }
+  
       updateGameUI();
     });
 
-    channel.presence.subscribe('enter', (member) => {
-      if (myClientId === gameState.adminId) {
-        syncJoiner(member.clientId, member.data.name);
-      }
-    });
+   channel.presence.subscribe('enter', (member) => {
+  if (myClientId !== gameState.adminId) return;
+  syncJoiner(member.clientId, member.data?.name || "Player");
+});
 
     channel.presence.enter({ name: myName });
 
@@ -235,11 +231,22 @@
 } // closes connectToTable
 
 function syncJoiner(id, name) {
-    if (!gameState.players.find(p => p.id === id)) {
-gameState.players.push({ id, name, wallet: 0, totalInjected: 0, blindsCount: 0, hasSeen: false, folded: false, wins: 0, losses: 0 });
-      broadcastState();
-    }
+  if (myClientId !== gameState.adminId) return; // only admin can sync
+  if (!gameState.players.find(p => p.id === id)) {
+    gameState.players.push({
+      id,
+      name,
+      wallet: 0,
+      totalInjected: 0,
+      blindsCount: 0,
+      hasSeen: false,
+      folded: false,
+      wins: 0,
+      losses: 0
+    });
+    broadcastState();
   }
+}
 
   function selectBetTab(val) {
     if (!gameState.handActive) return;
