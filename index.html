@@ -349,7 +349,7 @@ document.getElementById('blindActionBtn').innerText = `Blind (€1)`;
     if (gameState.handActive && activePlayerObj && activePlayerObj.id === myClientId) {
       document.getElementById('actionPad').style.opacity = "1";
       document.getElementById('actionPad').style.pointerEvents = "auto";
-      document.getElementById('blindActionBtn').disabled = (activePlayerObj.blindsCount >= 2 || gameState.minimumRequiredChaal > 2);
+      document.getElementById('blindActionBtn').disabled = (activePlayerObj.blindsCount >= 2 || activePlayerObj.hasSeen === true);
       document.getElementById('chaalActionBtn').disabled = false;
     } else {
       document.getElementById('actionPad').style.opacity = "0.4";
@@ -392,36 +392,39 @@ document.getElementById('blindActionBtn').innerText = `Blind (€1)`;
     broadcastState();
   }
 
-  function submitMove(moveType) {
-    let currentPlayer = gameState.players[gameState.turnIndex];
-    if (!currentPlayer || currentPlayer.id !== myClientId) return;
+ function submitMove(moveType) {
+  let currentPlayer = gameState.players[gameState.turnIndex];
+  if (!currentPlayer || currentPlayer.id !== myClientId) return;
 
-    let betSize = 0;
-    if (moveType === 'Blind') {
-      betSize = gameState.minimumRequiredChaal / 2;
-      currentPlayer.blindsCount++;
-    } else if (moveType === 'Chaal') {
-      betSize = currentSelectedBet;
-      if (betSize > gameState.minimumRequiredChaal) gameState.minimumRequiredChaal = betSize;
-    } else if (moveType === 'Fold') {
-      currentPlayer.folded = true;
-    }
+  let betSize = 0;
 
-    if (moveType !== 'Fold' && currentPlayer.wallet < betSize) {
-      alert("Insufficient chips! Ask Admin to add coins.");
-      return;
-    }
-
-    currentPlayer.wallet -= betSize;
-    gameState.pot += betSize;
-
-    let activePlayers = gameState.players.filter(p => !p.folded);
-    if (activePlayers.length === 1) executeVictoryDataCleanup(activePlayers[0].id);
-    else {
-      advanceTurn();
-      broadcastState();
-    }
+  if (moveType === 'Blind') {
+    if (currentPlayer.hasSeen || currentPlayer.blindsCount >= 2) return;
+    betSize = 1; // blind always €1
+    currentPlayer.blindsCount++;
+  } else if (moveType === 'Chaal') {
+    betSize = currentSelectedBet;
+    currentPlayer.hasSeen = true; // disable blind only for this player
+    if (betSize > gameState.minimumRequiredChaal) gameState.minimumRequiredChaal = betSize;
+  } else if (moveType === 'Fold') {
+    currentPlayer.folded = true;
   }
+
+  if (moveType !== 'Fold' && currentPlayer.wallet < betSize) {
+    alert("Insufficient chips! Ask Admin to add coins.");
+    return;
+  }
+
+  currentPlayer.wallet -= betSize;
+  gameState.pot += betSize;
+
+  let activePlayers = gameState.players.filter(p => !p.folded);
+  if (activePlayers.length === 1) executeVictoryDataCleanup(activePlayers[0].id);
+  else {
+    advanceTurn();
+    broadcastState();
+  }
+}
 
   function adminDeclareWinner(winnerId) {
     if (myClientId !== gameState.adminId) return;
