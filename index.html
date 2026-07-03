@@ -1,257 +1,69 @@
-<script>
-const ABLY_API_KEY = 'fnVQhw.H7cEiA:Ipz3KJ6W9-CCUl4qGuYTTSA-rkCk5gBoFZfIeDUdrQQ';
-const ADMIN_SECRET_KEY = 'CHIPS77';
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Teen Patti Recovery</title>
+  <style>
+    body { font-family: Arial, sans-serif; background:#0f172a; color:#fff; margin:0; padding:20px; }
+    .card { max-width:520px; margin:20px auto; background:#1e293b; padding:20px; border-radius:12px; }
+    input, button { width:100%; padding:10px; margin-top:8px; border-radius:8px; border:none; }
+    input { background:#334155; color:#fff; }
+    button { background:#2563eb; color:#fff; font-weight:bold; cursor:pointer; }
+    .hidden { display:none; }
+    .link { color:#93c5fd; text-decoration:underline; cursor:pointer; margin-top:12px; display:block; text-align:center; }
+  </style>
+</head>
+<body>
+  <div id="setupScreen" class="card">
+    <h2>Join Table</h2>
+    <label>Name</label>
+    <input id="playerNameInput" placeholder="Enter name" />
+    <label>Table Code</label>
+    <input id="tableCodeInput" placeholder="e.g. GOLD77" />
+    <div id="adminPassGroup" class="hidden">
+      <label>Admin Passcode</label>
+      <input id="adminPassInput" type="password" placeholder="Enter admin pass" />
+    </div>
+    <button onclick="connectToTable()">Enter Table</button>
+    <span id="toggleText" class="link" onclick="toggleAdminField()">Login as Table Admin</span>
+  </div>
 
-let isAdminLoggingIn = false;
+  <div id="gameScreen" class="card hidden">
+    <h2>Game Screen</h2>
+    <p>Table: <span id="displayTableCode"></span></p>
+    <p id="turnIndicator">Recovery mode loaded successfully.</p>
+  </div>
 
-function toggleAdminField() {
-  isAdminLoggingIn = !isAdminLoggingIn;
-  const group = document.getElementById('adminPassGroup');
-  const text = document.getElementById('toggleText');
-  const nameInput = document.getElementById('playerNameInput');
+  <script>
+    const ADMIN_SECRET_KEY = "CHIPS77";
+    let isAdminLoggingIn = false;
 
-  if (isAdminLoggingIn) {
-    group.style.display = "block";
-    text.innerText = "Log in as Standard Player instead";
-    if (!nameInput.value.trim()) nameInput.value = "Admin Host";
-  } else {
-    group.style.display = "none";
-    text.innerText = "Login as Table Admin";
-  }
-}
-
-function connectToTable() {
-  const myName = document.getElementById('playerNameInput').value.trim();
-  const roomCode = document.getElementById('tableCodeInput').value.trim().toUpperCase();
-
-  if (!myName || !roomCode) {
-    alert("Please provide both your Name and a Table Code.");
-    return;
-  }
-
-  if (isAdminLoggingIn) {
-    const enteredPass = document.getElementById('adminPassInput').value.trim();
-    if (enteredPass !== ADMIN_SECRET_KEY) {
-      alert("Incorrect Admin Master Passcode.");
-      return;
+    function toggleAdminField() {
+      isAdminLoggingIn = !isAdminLoggingIn;
+      const group = document.getElementById("adminPassGroup");
+      const text = document.getElementById("toggleText");
+      group.classList.toggle("hidden", !isAdminLoggingIn);
+      text.innerText = isAdminLoggingIn
+        ? "Log in as Standard Player instead"
+        : "Login as Table Admin";
     }
-  }
 
-  // TEMP: only confirm UI flow works (prevents blank page while we recover)
-  document.getElementById('setupScreen').classList.add('hidden');
-  document.getElementById('displayTableCode').innerText = roomCode;
-  document.getElementById('gameScreen').classList.remove('hidden');
-  document.getElementById('turnIndicator').innerText = "Recovery mode active. Script fixed.";
-}
-</script>
+    function connectToTable() {
+      const name = document.getElementById("playerNameInput").value.trim();
+      const code = document.getElementById("tableCodeInput").value.trim().toUpperCase();
+      if (!name || !code) return alert("Enter name and table code");
 
-function broadcastState() {
-  if (!channel) return;
-  if (myClientId !== gameState.adminId) return;
-  channel.publish('stateUpdate', gameState, (err) => {
-    if (err) console.error("publish error:", err);
-  });
-}
-
-function selectBetTab(val) {
-  if (!gameState.handActive) return;
-  if (val < gameState.minimumRequiredChaal) return;
-  currentSelectedBet = val;
-  for (let i = 2; i <= 5; i++) document.getElementById(`tab-${i}`).classList.remove('selected');
-  document.getElementById(`tab-${val}`).classList.add('selected');
-}
-
-function updateGameUI() {
-  document.getElementById('potValue').innerText = gameState.pot || 0;
-  document.getElementById('minChaalNotice').innerText = `Minimum Chaal Requirement: €${gameState.minimumRequiredChaal || 2}`;
-
-  const listContainer = document.getElementById('playerList');
-  listContainer.innerHTML = '';
-  const isAdmin = (myClientId === gameState.adminId);
-
-  document.getElementById('adminBadge').style.display = isAdmin ? "inline" : "none";
-  document.getElementById('startHandBtn').style.display = isAdmin ? "block" : "none";
-  document.getElementById('downloadExcelBtn').style.display = isAdmin ? "block" : "none";
-  if (isAdmin) document.getElementById('adminSplitPanel').classList.remove('hidden');
-  else document.getElementById('adminSplitPanel').classList.add('hidden');
-
-  if (!gameState.players?.length) {
-    document.getElementById('turnIndicator').innerText = "Waiting for players...";
-    return;
-  }
-
-  const activePlayerObj = gameState.players[gameState.turnIndex];
-
-  if (gameState.handActive && activePlayerObj) {
-    document.getElementById('turnIndicator').innerText = `PENDING TURN: ${activePlayerObj.name.toUpperCase()}`;
-    document.getElementById('turnIndicator').style.color = activePlayerObj.id === myClientId ? "#fbbf24" : "#a7f3d0";
-  } else {
-    document.getElementById('turnIndicator').innerText = "Waiting for Admin to credit buy-ins / start next hand...";
-    document.getElementById('turnIndicator').style.color = "#94a3b8";
-  }
-
-  gameState.players.forEach((p) => {
-    const isCurrent = gameState.handActive && activePlayerObj && activePlayerObj.id === p.id;
-    const statusLabel = p.folded ? "FOLDED" : (p.blindsCount < 2 ? `Blinds left: ${2 - p.blindsCount}` : "Chaal Only");
-    const netProfit = p.wallet - p.totalInjected;
-    const profitClass = netProfit >= 0 ? 'profit-pos' : 'profit-neg';
-    const profitSign = netProfit >= 0 ? '+€' : '-€';
-
-    const div = document.createElement('div');
-    div.className = `player-badge ${isCurrent ? 'active-turn' : ''}`;
-    div.innerHTML = `
-      <div class="badge-left">
-        <strong>${p.name} ${p.id === myClientId ? '(You)' : ''}</strong>
-        <div style="font-size:12px; color:#cbd5e1;">Bal: €${p.wallet} | <span style="color:#f3f4f6;">${statusLabel}</span></div>
-        <div style="font-size:12px; margin-top:2px;">Net P/L: <span class="${profitClass}">${profitSign}${Math.abs(netProfit)}</span></div>
-        <div class="history-text">Hst: W:${p.wins} | L:${p.losses}</div>
-      </div>
-      <div class="controls-right">
-        ${isAdmin ? `
-          ${gameState.handActive && !p.folded ? `<button class="admin-crown-btn" onclick="adminDeclareWinner('${p.id}')">🏆 Award Win</button>` : ``}
-          <div>
-            <button class="admin-buyin-btn" onclick="adminAddChips('${p.id}', 10)">+€10</button>
-            <button class="admin-buyin-btn" onclick="adminAddChips('${p.id}', 50)">+€50</button>
-          </div>
-        ` : (isCurrent ? `<div style="font-weight:bold; color:#fbbf24; font-size:13px;">⏳ Current</div>` : ``)}
-      </div>
-    `;
-    listContainer.appendChild(div);
-  });
-
-  if (isAdmin) {
-    const checkboxContainer = document.getElementById('splitCheckboxes');
-    checkboxContainer.innerHTML = '';
-    gameState.players.forEach(p => {
-      if (gameState.handActive && !p.folded) {
-        checkboxContainer.innerHTML += `
-          <div class="split-row">
-            <input type="checkbox" id="split-chk-${p.id}" value="${p.id}">
-            <label for="split-chk-${p.id}">${p.name}</label>
-          </div>`;
+      if (isAdminLoggingIn) {
+        const pass = document.getElementById("adminPassInput").value.trim();
+        if (pass !== ADMIN_SECRET_KEY) return alert("Incorrect Admin Passcode");
       }
-    });
-    if (!checkboxContainer.innerHTML) checkboxContainer.innerHTML = '<span style="color:#64748b; font-size:11px;">No active hand running</span>';
-  }
 
-  if (gameState.handActive && activePlayerObj && activePlayerObj.id === myClientId) {
-    document.getElementById('actionPad').style.opacity = "1";
-    document.getElementById('blindActionBtn').disabled = (activePlayerObj.blindsCount >= 2 || activePlayerObj.hasSeen === true);
-    document.getElementById('chaalActionBtn').disabled = false;
-  } else {
-    document.getElementById('actionPad').style.opacity = "0.85";
-    document.getElementById('blindActionBtn').disabled = true;
-    document.getElementById('chaalActionBtn').disabled = true;
-  }
-}
-
-function adminAddChips(playerId, amount) {
-  if (myClientId !== gameState.adminId) return;
-  const p = gameState.players.find(x => x.id === playerId);
-  if (!p) return;
-  p.wallet += amount;
-  p.totalInjected += amount;
-  broadcastState();
-}
-
-function hostResetHand() {
-  if (myClientId !== gameState.adminId) return;
-  let broke = gameState.players.filter(p => p.wallet < 1);
-  if (broke.length) return alert(`Cannot start hand! Players need buy-in: ${broke.map(p => p.name).join(', ')}`);
-
-  gameState.pot = 0;
-  gameState.minimumRequiredChaal = 2;
-  currentSelectedBet = 2;
-
-  gameState.players.forEach(p => {
-    p.folded = false; p.blindsCount = 0; p.hasSeen = false;
-    p.wallet -= 1; gameState.pot += 1;
-  });
-
-  gameState.turnIndex = 0;
-  gameState.handActive = true;
-  broadcastState();
-}
-
-function submitMove(moveType) {
-  const currentPlayer = gameState.players[gameState.turnIndex];
-  if (!currentPlayer || currentPlayer.id !== myClientId || !gameState.handActive) return;
-
-  let betSize = 0;
-  if (moveType === 'Blind') {
-    if (currentPlayer.hasSeen || currentPlayer.blindsCount >= 2) return;
-    betSize = 1; currentPlayer.blindsCount++;
-  } else if (moveType === 'Chaal') {
-    betSize = currentSelectedBet; currentPlayer.hasSeen = true;
-    if (betSize > gameState.minimumRequiredChaal) gameState.minimumRequiredChaal = betSize;
-  } else if (moveType === 'Fold') {
-    currentPlayer.folded = true;
-  }
-
-  if (moveType !== 'Fold' && currentPlayer.wallet < betSize) return alert("Insufficient chips! Ask Admin to add coins.");
-
-  currentPlayer.wallet -= betSize;
-  gameState.pot += betSize;
-
-  const active = gameState.players.filter(p => !p.folded);
-  if (active.length === 1) executeVictoryDataCleanup(active[0].id);
-  else { advanceTurn(); broadcastState(); }
-}
-
-function advanceTurn() {
-  if (!gameState.players?.length) return;
-  let attempts = 0;
-  do {
-    gameState.turnIndex = (gameState.turnIndex + 1) % gameState.players.length;
-    attempts++;
-  } while (attempts <= gameState.players.length && (gameState.players[gameState.turnIndex].folded || gameState.players[gameState.turnIndex].wallet < 1));
-}
-
-function adminDeclareWinner(winnerId) {
-  if (myClientId !== gameState.adminId) return;
-  executeVictoryDataCleanup(winnerId);
-}
-
-function executeVictoryDataCleanup(winnerId) {
-  const winner = gameState.players.find(p => p.id === winnerId);
-  if (!winner) return;
-  winner.wallet += gameState.pot; winner.wins += 1;
-  gameState.players.forEach(p => { if (p.id !== winnerId) p.losses += 1; });
-  gameState.pot = 0; gameState.handActive = false;
-  broadcastState();
-}
-
-function adminExecuteSplit() {
-  if (myClientId !== gameState.adminId) return;
-  let checkedIds = [];
-  gameState.players.forEach(p => {
-    let el = document.getElementById(`split-chk-${p.id}`);
-    if (el && el.checked) checkedIds.push(p.id);
-  });
-  if (!checkedIds.length) return alert("Select at least one player.");
-
-  let share = Math.floor((gameState.pot / checkedIds.length) * 100) / 100;
-  gameState.players.forEach(p => {
-    if (checkedIds.includes(p.id)) { p.wallet += share; p.wins += 1; }
-    else p.losses += 1;
-  });
-  gameState.pot = 0; gameState.handActive = false;
-  broadcastState();
-}
-
-function exportToExcel() {
-  if (!gameState.players.length) return;
-  let data = gameState.players.map(p => ({
-    "Player Name": p.name,
-    "Current Wallet Balance (€)": p.wallet,
-    "Total Injected Buyins (€)": p.totalInjected,
-    "Net Profit/Loss Summary (€)": p.wallet - p.totalInjected,
-    "Total Wins": p.wins,
-    "Total Losses": p.losses
-  }));
-  let ws = XLSX.utils.json_to_sheet(data);
-  let wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Session Results Ledger");
-  XLSX.writeFile(wb, `Teen_Patti_Table_${roomCode}_Report.xlsx`);
-}
-</script>
+      document.getElementById("setupScreen").classList.add("hidden");
+      document.getElementById("displayTableCode").innerText = code;
+      document.getElementById("gameScreen").classList.remove("hidden");
+      document.getElementById("turnIndicator").innerText = `Welcome ${name}. UI is working.`;
+    }
+  </script>
+</body>
+</html>
