@@ -122,102 +122,54 @@
 </div>
 
 <script>
-  const ABLY_API_KEY = 'fnVQhw.H7cEiA:Ipz3KJ6W9-CCUl4qGuYTTSA-rkCk5gBoFZfIeDUdrQQ';
-  const ADMIN_SECRET_KEY = 'CHIPS77';
+const ABLY_API_KEY = 'fnVQhw.H7cEiA:Ipz3KJ6W9-CCUl4qGuYTTSA-rkCk5gBoFZfIeDUdrQQ';
+const ADMIN_SECRET_KEY = 'CHIPS77';
 
-  let ably, channel;
-  let roomCode = "";
-  let myClientId = "";
-  let myName = "";
-  let currentSelectedBet = 2;
-  let isAdminLoggingIn = false;
+let ably, channel;
+let roomCode = "";
+let myClientId = "";
+let myName = "";
+let isAdminLoggingIn = false;
 
-  let gameState = {
-    adminId: "",
-    players: [], // { id, name, wallet, totalInjected, blindsCount, folded, wins, losses }
-    pot: 0,
-    turnIndex: 0,
-    handActive: false,
-    minimumRequiredChaal: 2
-  };
+let gameState = { adminId: "", players: [], pot: 0, turnIndex: 0, handActive: false, minimumRequiredChaal: 2 };
 
-  function toggleAdminField() {
-    isAdminLoggingIn = !isAdminLoggingIn;
-    const group = document.getElementById('adminPassGroup');
-    const text = document.getElementById('toggleText');
-    if (isAdminLoggingIn) {
-      group.style.display = "block";
-      text.innerText = "Log in as Standard Player instead";
-      document.getElementById('playerNameInput').value = "Admin Host";
-    } else {
-      group.style.display = "none";
-      text.innerText = "Login as Table Admin";
-      document.getElementById('playerNameInput').value = "";
-    }
-  }
+function toggleAdminField() {
+  isAdminLoggingIn = !isAdminLoggingIn;
+  const group = document.getElementById('adminPassGroup');
+  const text = document.getElementById('toggleText');
+  group.style.display = isAdminLoggingIn ? "block" : "none";
+  text.innerText = isAdminLoggingIn ? "Log in as Standard Player instead" : "Login as Table Admin";
+}
 
 function connectToTable() {
   myName = document.getElementById('playerNameInput').value.trim();
   roomCode = document.getElementById('tableCodeInput').value.trim().toUpperCase();
-
-  if (!myName || !roomCode) {
-    alert("Please provide both your Name and a Table Code.");
-    return;
-  }
+  if (!myName || !roomCode) return alert("Please provide both your Name and a Table Code.");
 
   if (isAdminLoggingIn) {
     const enteredPass = document.getElementById('adminPassInput').value.trim();
-    if (enteredPass !== ADMIN_SECRET_KEY) {
-      alert("Incorrect Admin Master Passcode. Authorization denied.");
-      return;
-    }
+    if (enteredPass !== ADMIN_SECRET_KEY) return alert("Incorrect Admin Master Passcode.");
   }
 
   myClientId = 'id_' + Math.random().toString(36).slice(2, 11);
-  ably = new Ably.Realtime({ key: ABLY_API_KEY, clientId: myClientId, echoMessages: false });
+  ably = new Ably.Realtime({ key: ABLY_API_KEY, clientId: myClientId });
   channel = ably.channels.get('teen-patti-' + roomCode);
 
-  channel.subscribe('stateUpdate', (message) => {
-    gameState = message.data;
+  channel.subscribe('stateUpdate', (msg) => {
+    gameState = msg.data || gameState;
     updateGameUI();
   });
 
-  channel.subscribe('joinRequest', (msg) => {
-    if (myClientId !== gameState.adminId) return;
-    const id = msg?.data?.id;
-    const name = msg?.data?.name || "Player";
-    if (!id) return;
-
-    if (!gameState.players.find(p => p.id === id)) {
-      gameState.players.push({
-        id, name,
-        wallet: 0, totalInjected: 0,
-        blindsCount: 0, hasSeen: false, folded: false,
-        wins: 0, losses: 0
-      });
-      broadcastState();
-    }
-  });
-
   channel.presence.enter({ name: myName }, (err) => {
-    if (err) {
-      alert("Unable to join table: " + (err.message || ""));
-      return;
-    }
+    if (err) return alert("Unable to join table: " + (err.message || ""));
 
     if (isAdminLoggingIn && !gameState.adminId) {
       gameState.adminId = myClientId;
+      gameState.players = gameState.players || [];
       if (!gameState.players.find(p => p.id === myClientId)) {
-        gameState.players.push({
-          id: myClientId, name: myName,
-          wallet: 0, totalInjected: 0,
-          blindsCount: 0, hasSeen: false, folded: false,
-          wins: 0, losses: 0
-        });
+        gameState.players.push({ id: myClientId, name: myName, wallet: 0, totalInjected: 0, blindsCount: 0, hasSeen: false, folded: false, wins: 0, losses: 0 });
       }
       broadcastState();
-    } else {
-      channel.publish('joinRequest', { id: myClientId, name: myName });
     }
 
     document.getElementById('setupScreen').classList.add('hidden');
@@ -229,11 +181,8 @@ function connectToTable() {
 function broadcastState() {
   if (!channel) return;
   if (myClientId !== gameState.adminId) return;
-  channel.publish('stateUpdate', gameState, (err) => {
-    if (err) console.error("publish error:", err);
-  });
+  channel.publish('stateUpdate', gameState);
 }
-
   function updateGameUI() {
     document.getElementById('potValue').innerText = gameState.pot;
     document.getElementById('minChaalNotice').innerText = `Minimum Chaal Requirement: €${gameState.minimumRequiredChaal}`;
