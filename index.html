@@ -241,10 +241,15 @@
     document.getElementById(`tab-${val}`).classList.add('selected');
   }
 
-  function broadcastState() {
-    if (!channel) return;
-    channel.publish('stateUpdate', gameState);
-  }
+ function broadcastState() {
+  if (!channel) return;
+  channel.publish('stateUpdate', gameState, (err) => {
+    if (err) {
+      console.error("publish error:", err);
+      alert("Publish failed: " + (err.message || "no permission/capability"));
+    }
+  });
+}
 
   function updateGameUI() {
     document.getElementById('potValue').innerText = gameState.pot;
