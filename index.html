@@ -511,14 +511,27 @@ if (gameState.players[gameState.turnIndex]?.wallet < 1 || gameState.players[game
     broadcastState();
   }
 
-  function advanceTurn() {
-    let attempts = 0;
-    do {
-      gameState.turnIndex = (gameState.turnIndex + 1) % gameState.players.length;
-      attempts++;
-    } while (gameState.players[gameState.turnIndex].folded && attempts < gameState.players.length);
-  }
+ function advanceTurn() {
+  if (!gameState.players || gameState.players.length === 0) return;
 
+  // only players still in hand
+  const activeIds = gameState.players.filter(p => !p.folded).map(p => p.id);
+  if (activeIds.length <= 1) return;
+
+  let next = gameState.turnIndex;
+  let attempts = 0;
+  const total = gameState.players.length;
+
+  do {
+    next = (next + 1) % total;
+    attempts++;
+  } while (
+    attempts <= total &&
+    (gameState.players[next].folded === true || gameState.players[next].wallet < 1)
+  );
+
+  gameState.turnIndex = next;
+}
   function exportToExcel() {
     if (gameState.players.length === 0) return;
 
