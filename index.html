@@ -44,7 +44,7 @@
 <body>
 <div class="container">
   <h1>♠ Teen Patti Companion Ultimate ♠</h1>
-  <div style="text-align:center;color:#22c55e;font-weight:bold;margin-bottom:10px;">BUILD: TP-LIVE-FINAL-ABLY-CLIENTID</div>
+  <div style="text-align:center;color:#22c55e;font-weight:bold;margin-bottom:10px;">BUILD: TP-NO-PRESENCE-2026-07-03</div>
 
   <div id="setupScreen" class="card">
     <h2>Join a Table</h2>
@@ -141,7 +141,6 @@
     const group = document.getElementById('adminPassGroup');
     const text = document.getElementById('toggleText');
     const nameInput = document.getElementById('playerNameInput');
-
     if (isAdminLoggingIn) {
       group.style.display = "block";
       text.innerText = "Log in as Standard Player instead";
@@ -156,27 +155,17 @@
     myName = document.getElementById('playerNameInput').value.trim();
     roomCode = document.getElementById('tableCodeInput').value.trim().toUpperCase();
 
-    if (!myName || !roomCode) {
-      alert("Please provide both your Name and a Table Code.");
-      return;
-    }
+    if (!myName || !roomCode) return alert("Please provide both your Name and a Table Code.");
 
     if (isAdminLoggingIn) {
       const enteredPass = document.getElementById('adminPassInput').value.trim();
-      if (enteredPass !== ADMIN_SECRET_KEY) {
-        alert("Incorrect Admin Master Passcode. Authorization denied.");
-        return;
-      }
+      if (enteredPass !== ADMIN_SECRET_KEY) return alert("Incorrect Admin Master Passcode. Authorization denied.");
     }
 
+    // local deterministic id (presence-free architecture)
     myClientId = "tp_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8);
 
-    ably = new Ably.Realtime({
-      key: ABLY_API_KEY,
-      clientId: myClientId,
-      echoMessages: false
-    });
-
+    ably = new Ably.Realtime({ key: ABLY_API_KEY, echoMessages: false });
     channel = ably.channels.get('teen-patti-' + roomCode);
 
     channel.subscribe('stateUpdate', (message) => {
@@ -194,7 +183,6 @@
       const id = msg?.data?.id;
       const name = msg?.data?.name || "Player";
       if (!id) return;
-
       if (!gameState.players.find(p => p.id === id)) {
         gameState.players.push({
           id, name, wallet: 0, totalInjected: 0, blindsCount: 0, hasSeen: false, folded: false, wins: 0, losses: 0
@@ -203,30 +191,24 @@
       }
     });
 
-    channel.presence.enter({ name: myName }, (err) => {
-      if (err) {
-        alert("Unable to join table: " + (err.message || ""));
-        return;
+    // presence-free join flow
+    if (isAdminLoggingIn && !gameState.adminId) {
+      gameState.adminId = myClientId;
+      if (!gameState.players.find(p => p.id === myClientId)) {
+        gameState.players.push({
+          id: myClientId, name: myName, wallet: 0, totalInjected: 0, blindsCount: 0, hasSeen: false, folded: false, wins: 0, losses: 0
+        });
       }
+      broadcastState();
+    } else {
+      channel.publish('requestState', { from: myClientId });
+      channel.publish('joinRequest', { id: myClientId, name: myName });
+    }
 
-      if (isAdminLoggingIn && !gameState.adminId) {
-        gameState.adminId = myClientId;
-        if (!gameState.players.find(p => p.id === myClientId)) {
-          gameState.players.push({
-            id: myClientId, name: myName, wallet: 0, totalInjected: 0, blindsCount: 0, hasSeen: false, folded: false, wins: 0, losses: 0
-          });
-        }
-        broadcastState();
-      } else {
-        channel.publish('requestState', { from: myClientId });
-        channel.publish('joinRequest', { id: myClientId, name: myName });
-      }
-
-      document.getElementById('setupScreen').classList.add('hidden');
-      document.getElementById('displayTableCode').innerText = roomCode;
-      document.getElementById('gameScreen').classList.remove('hidden');
-      updateGameUI();
-    });
+    document.getElementById('setupScreen').classList.add('hidden');
+    document.getElementById('displayTableCode').innerText = roomCode;
+    document.getElementById('gameScreen').classList.remove('hidden');
+    updateGameUI();
   }
 
   function broadcastState() {
@@ -251,14 +233,12 @@
 
     const listContainer = document.getElementById('playerList');
     listContainer.innerHTML = '';
-
     const isAdmin = (myClientId === gameState.adminId);
+
     document.getElementById('adminBadge').style.display = isAdmin ? "inline" : "none";
     document.getElementById('startHandBtn').style.display = isAdmin ? "block" : "none";
     document.getElementById('downloadExcelBtn').style.display = isAdmin ? "block" : "none";
-
-    if (isAdmin) document.getElementById('adminSplitPanel').classList.remove('hidden');
-    else document.getElementById('adminSplitPanel').classList.add('hidden');
+    document.getElementById('adminSplitPanel').classList.toggle('hidden', !isAdmin);
 
     if (!gameState.players?.length) {
       document.getElementById('turnIndicator').innerText = "Waiting for players...";
@@ -312,9 +292,7 @@
       `;
 
       if (isAdmin) {
-        if (gameState.handActive && !p.folded) {
-          html += `<button class="admin-crown-btn" onclick="adminDeclareWinner('${p.id}')">🏆 Award Win</button>`;
-        }
+        if (gameState.handActive && !p.folded) html += `<button class="admin-crown-btn" onclick="adminDeclareWinner('${p.id}')">🏆 Award Win</button>`;
         html += `
           <div>
             <button class="admin-buyin-btn" onclick="adminAddChips('${p.id}', 10)">+€10</button>
