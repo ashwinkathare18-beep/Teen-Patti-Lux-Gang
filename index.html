@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Teen Patti Companion — Stable ID FINAL</title>
+  <title>Teen Patti Companion — Admin Authoritative Final</title>
 
   <script src="https://cdn.ably.com/lib/ably.min-1.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -46,8 +46,8 @@
 <body>
   <div class="wrap">
     <h1>♠ Teen Patti Companion Ultimate ♠</h1>
-    <div class="topline">BUILD: TP-STABLE-ID-FINAL-2026-07-03</div>
-    <div class="muted">Presence-free + admin sync + stable client id fix</div>
+    <div class="topline">BUILD: TP-ADMIN-AUTH-FINAL-2026-07-03</div>
+    <div class="muted">Single-writer model: only Admin mutates game state</div>
 
     <div id="setupScreen" class="card">
       <h2>Join Table</h2>
@@ -99,9 +99,9 @@
           <div id="tab-5" class="tab" onclick="selectBetTab(5)">€5</div>
         </div>
         <div class="row">
-          <button id="blindActionBtn" class="btn-blind" onclick="submitMove('Blind')">Blind (€1)</button>
-          <button id="chaalActionBtn" class="btn-chaal" onclick="submitMove('Chaal')">Chaal</button>
-          <button class="btn-fold" onclick="submitMove('Fold')">Fold</button>
+          <button id="blindActionBtn" class="btn-blind" onclick="requestMove('Blind')">Blind (€1)</button>
+          <button id="chaalActionBtn" class="btn-chaal" onclick="requestMove('Chaal')">Chaal</button>
+          <button id="foldActionBtn" class="btn-fold" onclick="requestMove('Fold')">Fold</button>
         </div>
       </div>
 
@@ -115,7 +115,7 @@
   </div>
 
   <script>
-    console.log("TP-STABLE-ID-FINAL-LOADED");
+    console.log("TP-ADMIN-AUTH-FINAL-LOADED");
 
     const ABLY_API_KEY = 'fnVQhw.H7cEiA:Ipz3KJ6W9-CCUl4qGuYTTSA-rkCk5gBoFZfIeDUdrQQ';
     const ADMIN_SECRET_KEY = 'CHIPS77';
@@ -124,9 +124,9 @@
     let roomCode = "", myClientId = "", myName = "";
     let currentSelectedBet = 2, isAdminLoggingIn = false;
 
-    let isBootstrappingAdmin = false;
     let knownJoinIds = new Set();
     let knownJoinNames = {};
+    let isBootstrappingAdmin = false;
 
     let gameState = {
       adminId: "",
@@ -176,22 +176,16 @@
         if (pass !== ADMIN_SECRET_KEY) return alert("Incorrect Admin Master Passcode.");
       }
 
-      // STABLE ID PATCH
       myClientId = "tp_" + roomCode + "_" + normalizeNameToId(myName);
-
-      // duplicate name guard
-      if (!isAdminLoggingIn) {
-        const existing = gameState.players.find(p => p.id === myClientId);
-        if (existing && existing.name !== myName) {
-          return alert("Name conflict. Please use a unique player name.");
-        }
-      }
 
       ably = new Ably.Realtime({ key: ABLY_API_KEY, echoMessages: false });
       channel = ably.channels.get("teen-patti-" + roomCode);
 
+      // receive authoritative state
       channel.subscribe("stateUpdate", (msg) => {
         if (!msg?.data) return;
+
+        // prevent brief overwrite during admin bootstrap
         if (isAdminLoggingIn && isBootstrappingAdmin && gameState.adminId === myClientId) return;
 
         gameState = msg.data;
@@ -203,12 +197,17 @@
         updateGameUI();
       });
 
+      // admin responds with full state
       channel.subscribe("requestState", () => {
-        if (myClientId === gameState.adminId) broadcastState();
+        if (myClientId === gameState.adminId) {
+          broadcastState();
+        }
       });
 
+      // join requests handled ONLY by admin
       channel.subscribe("joinRequest", (msg) => {
         if (myClientId !== gameState.adminId) return;
+
         const id = msg?.data?.id;
         const name = msg?.data?.name || "Player";
         if (!id) return;
@@ -216,13 +215,25 @@
         knownJoinIds.add(id);
         knownJoinNames[id] = name;
 
-        if (!gameState.players.find(p => p.id === id)) {
+        let p = gameState.players.find(x => x.id === id);
+        if (!p) {
           gameState.players.push(makePlayer(id, name));
+          broadcastState();
+        } else if (p.name !== name) {
+          p.name = name;
           broadcastState();
         }
       });
 
+      // move requests handled ONLY by admin
+      channel.subscribe("moveRequest", (msg) => {
+        if (myClientId !== gameState.adminId) return;
+        const { playerId, moveType, selectedBet } = msg?.data || {};
+        processMoveAsAdmin(playerId, moveType, selectedBet);
+      });
+
       if (isAdminLoggingIn) {
+        // admin bootstrap
         isBootstrappingAdmin = true;
         gameState.adminId = myClientId;
         knownJoinIds.add(myClientId);
@@ -233,16 +244,19 @@
         }
 
         broadcastState();
-        setTimeout(() => { isBootstrappingAdmin = false; }, 1500);
+        setTimeout(() => { isBootstrappingAdmin = false; }, 1200);
       } else {
+        // player asks for state and announces join
         channel.publish("requestState", { from: myClientId });
         channel.publish("joinRequest", { id: myClientId, name: myName });
       }
 
+      // admin resync from known joins
       setInterval(() => {
         if (myClientId === gameState.adminId) adminResyncPlayersFromPings();
       }, 2000);
 
+      // players keep pinging join so admin cannot miss
       setInterval(() => {
         if (channel && myClientId && myClientId !== gameState.adminId) {
           channel.publish("joinRequest", { id: myClientId, name: myName });
@@ -265,24 +279,34 @@
       }
 
       knownJoinIds.forEach((id) => {
-        if (!gameState.players.find(p => p.id === id)) {
+        const exists = gameState.players.find(p => p.id === id);
+        if (!exists) {
           gameState.players.push(makePlayer(id, knownJoinNames[id] || "Player"));
           changed = true;
+        } else {
+          const nm = knownJoinNames[id];
+          if (nm && exists.name !== nm) {
+            exists.name = nm;
+            changed = true;
+          }
         }
       });
 
       if (changed) broadcastState();
     }
 
+    // only admin should publish state
     function broadcastState() {
       if (!channel) return;
       if (myClientId !== gameState.adminId) return;
-      channel.publish("stateUpdate", gameState, () => updateGameUI());
+      channel.publish("stateUpdate", gameState, () => {
+        updateGameUI();
+      });
     }
 
     function selectBetTab(val) {
-      const activePlayerObj = gameState.players[gameState.turnIndex];
-      const myTurn = !!(gameState.handActive && activePlayerObj && activePlayerObj.id === myClientId);
+      const active = gameState.players[gameState.turnIndex];
+      const myTurn = !!(gameState.handActive && active && active.id === myClientId);
       if (!myTurn) return;
 
       const min = gameState.minimumRequiredChaal || 2;
@@ -291,6 +315,68 @@
       currentSelectedBet = val;
       for (let i = 2; i <= 5; i++) document.getElementById(`tab-${i}`).classList.remove("sel");
       document.getElementById(`tab-${val}`).classList.add("sel");
+    }
+
+    // Players request move; admin validates + applies
+    function requestMove(moveType) {
+      const active = gameState.players[gameState.turnIndex];
+      const myTurn = !!(gameState.handActive && active && active.id === myClientId);
+      if (!myTurn) return;
+
+      channel.publish("moveRequest", {
+        playerId: myClientId,
+        moveType,
+        selectedBet: currentSelectedBet
+      });
+    }
+
+    function processMoveAsAdmin(playerId, moveType, selectedBet) {
+      if (!gameState.handActive) return;
+
+      const p = gameState.players[gameState.turnIndex];
+      if (!p) return;
+      if (p.id !== playerId) return; // hard turn enforcement
+
+      let bet = 0;
+
+      if (moveType === "Blind") {
+        if (p.hasSeen || p.blindsCount >= 2 || p.wallet < 1) return;
+        bet = 1;
+        p.blindsCount++;
+      } else if (moveType === "Chaal") {
+        const b = Math.max(gameState.minimumRequiredChaal || 2, Number(selectedBet || 2));
+        if (p.wallet < b) return;
+        bet = b;
+        p.hasSeen = true;
+        if (b > gameState.minimumRequiredChaal) gameState.minimumRequiredChaal = b;
+      } else if (moveType === "Fold") {
+        p.folded = true;
+      } else {
+        return;
+      }
+
+      if (moveType !== "Fold") {
+        p.wallet -= bet;
+        gameState.pot += bet;
+      }
+
+      const alive = gameState.players.filter(x => !x.folded);
+      if (alive.length === 1) {
+        executeVictoryDataCleanup(alive[0].id);
+        return;
+      }
+
+      advanceTurn();
+
+      if (!gameState.handActive) {
+        const remaining = gameState.players.filter(x => !x.folded && x.wallet >= 1);
+        if (remaining.length === 1) {
+          executeVictoryDataCleanup(remaining[0].id);
+          return;
+        }
+      }
+
+      broadcastState();
     }
 
     function updateGameUI() {
@@ -311,12 +397,12 @@
         return;
       }
 
-      const activePlayerObj = gameState.players[gameState.turnIndex];
-      const myPlayer = gameState.players.find(p => p.id === myClientId);
+      const active = gameState.players[gameState.turnIndex];
+      const me = gameState.players.find(p => p.id === myClientId);
 
-      if (gameState.handActive && activePlayerObj) {
-        document.getElementById("turnIndicator").innerText = `PENDING TURN: ${esc(activePlayerObj.name).toUpperCase()}`;
-        document.getElementById("turnIndicator").style.color = activePlayerObj.id === myClientId ? "#fbbf24" : "#a7f3d0";
+      if (gameState.handActive && active) {
+        document.getElementById("turnIndicator").innerText = `PENDING TURN: ${esc(active.name).toUpperCase()}`;
+        document.getElementById("turnIndicator").style.color = active.id === myClientId ? "#fbbf24" : "#a7f3d0";
       } else {
         document.getElementById("turnIndicator").innerText = "Waiting for Admin to credit buy-ins / start next hand...";
         document.getElementById("turnIndicator").style.color = "#94a3b8";
@@ -326,7 +412,7 @@
         currentSelectedBet = gameState.minimumRequiredChaal || 2;
       }
 
-      const myTurn = !!(gameState.handActive && activePlayerObj && activePlayerObj.id === myClientId);
+      const myTurn = !!(gameState.handActive && active && active.id === myClientId);
 
       for (let i = 2; i <= 5; i++) {
         const tab = document.getElementById(`tab-${i}`);
@@ -336,7 +422,7 @@
       }
 
       gameState.players.forEach((p) => {
-        const isCurrent = gameState.handActive && activePlayerObj && activePlayerObj.id === p.id;
+        const isCurrent = gameState.handActive && active && active.id === p.id;
         const status = p.folded ? "FOLDED" : (p.blindsCount < 2 ? `Blinds left: ${2 - p.blindsCount}` : "Chaal Only");
         const net = p.wallet - p.totalInjected;
 
@@ -345,7 +431,9 @@
 
         let right = "";
         if (isAdmin) {
-          if (gameState.handActive && !p.folded) right += `<button class="btn-win" onclick="adminDeclareWinner('${p.id}')">🏆 Award Win</button><br/>`;
+          if (gameState.handActive && !p.folded) {
+            right += `<button class="btn-win" onclick="adminDeclareWinner('${p.id}')">🏆 Award Win</button><br/>`;
+          }
           right += `<button class="btn-admin" onclick="adminAddChips('${p.id}',10)">+€10</button> <button class="btn-admin" onclick="adminAddChips('${p.id}',50)">+€50</button>`;
         } else if (isCurrent) {
           right = `<div style="font-weight:700;color:#fbbf24;">⏳ Current</div>`;
@@ -374,15 +462,18 @@
         if (!s.innerHTML) s.innerHTML = `<span class="small">No active hand running</span>`;
       }
 
-      if (myTurn && myPlayer) {
-        const canBlind = (!myPlayer.hasSeen && myPlayer.blindsCount < 2 && myPlayer.wallet >= 1);
-        const canChaal = (myPlayer.wallet >= currentSelectedBet);
+      // control buttons for local player (visual; authority is admin)
+      if (myTurn && me) {
+        const canBlind = (!me.hasSeen && me.blindsCount < 2 && me.wallet >= 1);
+        const canChaal = (me.wallet >= currentSelectedBet);
         document.getElementById("blindActionBtn").disabled = !canBlind;
         document.getElementById("chaalActionBtn").disabled = !canChaal;
+        document.getElementById("foldActionBtn").disabled = false;
         document.getElementById("actionPad").style.opacity = "1";
       } else {
         document.getElementById("blindActionBtn").disabled = true;
         document.getElementById("chaalActionBtn").disabled = true;
+        document.getElementById("foldActionBtn").disabled = true;
         document.getElementById("actionPad").style.opacity = "0.85";
       }
     }
@@ -423,47 +514,11 @@
       broadcastState();
     }
 
-    function submitMove(moveType) {
-      const p = gameState.players[gameState.turnIndex];
-      if (!p || p.id !== myClientId || !gameState.handActive) return;
-
-      let bet = 0;
-      if (moveType === "Blind") {
-        if (p.hasSeen || p.blindsCount >= 2) return;
-        bet = 1;
-        p.blindsCount++;
-      } else if (moveType === "Chaal") {
-        bet = currentSelectedBet;
-        p.hasSeen = true;
-        if (bet > gameState.minimumRequiredChaal) gameState.minimumRequiredChaal = bet;
-      } else if (moveType === "Fold") {
-        p.folded = true;
-      }
-
-      if (moveType !== "Fold" && p.wallet < bet) return alert("Insufficient chips! Ask Admin to add coins.");
-
-      p.wallet -= bet;
-      gameState.pot += bet;
-
-      const active = gameState.players.filter(x => !x.folded);
-      if (active.length === 1) {
-        executeVictoryDataCleanup(active[0].id);
-      } else {
-        advanceTurn();
-        if (!gameState.handActive) {
-          const remaining = gameState.players.filter(x => !x.folded && x.wallet >= 1);
-          if (remaining.length === 1) executeVictoryDataCleanup(remaining[0].id);
-        } else {
-          broadcastState();
-        }
-      }
-    }
-
     function advanceTurn() {
       if (!gameState.players?.length) return;
 
-      let attempts = 0;
       const n = gameState.players.length;
+      let attempts = 0;
 
       do {
         gameState.turnIndex = (gameState.turnIndex + 1) % n;
@@ -483,9 +538,11 @@
     function executeVictoryDataCleanup(winnerId) {
       const winner = gameState.players.find(p => p.id === winnerId);
       if (!winner) return;
+
       winner.wallet += gameState.pot;
       winner.wins += 1;
       gameState.players.forEach(p => { if (p.id !== winnerId) p.losses += 1; });
+
       gameState.pot = 0;
       gameState.handActive = false;
       broadcastState();
@@ -493,6 +550,7 @@
 
     function adminExecuteSplit() {
       if (myClientId !== gameState.adminId) return;
+
       const checked = [];
       gameState.players.forEach(p => {
         const el = document.getElementById(`split-chk-${p.id}`);
@@ -505,6 +563,7 @@
         if (checked.includes(p.id)) { p.wallet += share; p.wins += 1; }
         else p.losses += 1;
       });
+
       gameState.pot = 0;
       gameState.handActive = false;
       broadcastState();
