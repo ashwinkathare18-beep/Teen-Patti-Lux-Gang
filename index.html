@@ -376,7 +376,6 @@ function hostResetHand() {
   gameState.turnIndex = 0;
   gameState.handActive = true;
 
-  // ensure valid first turn
   if (gameState.players[gameState.turnIndex]?.wallet < 1 || gameState.players[gameState.turnIndex]?.folded) {
     advanceTurn();
   }
