@@ -290,9 +290,7 @@
       document.getElementById('turnIndicator').innerText = "Waiting for Admin to credit buy-ins / start next hand...";
       document.getElementById('turnIndicator').style.color = "#94a3b8";
     }
-
-    let blindCost = gameState.minimumRequiredChaal / 2;
-    document.getElementById('blindActionBtn').innerText = `Blind (€${blindCost})`;
+document.getElementById('blindActionBtn').innerText = `Blind (€1)`;
 
     for (let i = 2; i <= 5; i++) {
       let el = document.getElementById(`tab-${i}`);
