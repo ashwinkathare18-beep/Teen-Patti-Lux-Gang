@@ -34,7 +34,7 @@
         .active-turn { border: 2px solid #fbbf24; background: #1e3a8a; }
         .history-text { font-size: 11px; color: #94a3b8; margin-top: 4px; font-family: monospace; }
         .status-bar { text-align: center; color: #94a3b8; font-weight: bold; font-size: 16px; margin-top: 5px; background: #1e293b; padding: 10px; border-radius: 6px; border: 1px solid #475569; }
-        .hidden { display: none; }
+        .hidden { display: none !important; }
         .flex-row { display: flex; gap: 10px; margin-top: 10px; }
         .admin-crown-btn { background: #fbbf24; color: #000; font-size: 12px; padding: 6px 10px; width: auto; border-radius: 4px; font-weight: bold; margin-bottom: 4px; }
         .admin-buyin-btn { background: #6b7280; color: #fff; font-size: 11px; padding: 4px 8px; width: auto; border-radius: 4px; margin-right: 4px; border: 1px solid #4b5563; }
@@ -43,11 +43,12 @@
         .controls-right { display: flex; flex-direction: column; align-items: flex-end; }
 
         /* GIANT MEGA POPUP OVERLAY SYSTEM */
-        .mega-popup-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.98); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; text-align: center; padding: 20px; box-sizing: border-box; }
+        .mega-popup-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.98); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; text-align: center; padding: 20px; box-sizing: border-box; pointer-events: auto; }
+        .mega-popup-overlay.hidden { display: none !important; pointer-events: none !important; }
         .mega-winner-title { font-size: 32px; color: #fbbf24; text-transform: uppercase; letter-spacing: 3px; font-weight: 800; margin-bottom: 10px; }
         .mega-winner-name { font-size: 110px; font-weight: 900; color: #ffffff; text-shadow: 0 0 60px rgba(251,191,36,0.9); margin: 15px 0; text-transform: uppercase; word-wrap: break-word; max-width: 100%; line-height: 1.1; }
         .mega-winner-pot { font-size: 48px; color: #4ade80; font-weight: bold; }
-        .mega-close-btn { margin-top: 50px; background: #fbbf24; color: #000; width: auto; padding: 18px 50px; font-size: 20px; border-radius: 35px; box-shadow: 0 10px 20px rgba(251,191,36,0.3); }
+        .mega-close-btn { margin-top: 50px; background: #fbbf24; color: #000; width: auto; padding: 18px 50px; font-size: 20px; border-radius: 35px; box-shadow: 0 10px 20px rgba(251,191,36,0.3); cursor: pointer; }
         
         .admin-toggle-link { text-align: center; font-size: 12px; margin-top: 15px; color: #64748b; cursor: pointer; text-decoration: underline; }
     </style>
@@ -126,12 +127,12 @@
 </div>
 
 <!-- EXTRA LARGE WINNER SCREEN OVERLAY -->
-<div id="giantWinnerPopup" class="mega-popup-overlay hidden">
+<div id="giantWinnerPopup" class="mega-popup-overlay hidden" aria-hidden="true">
     <div style="font-size: 100px; margin-bottom: 10px;">🏆</div>
     <div class="mega-winner-title">ROUND WINNER</div>
     <div class="mega-winner-name" id="giantWinnerName">PLAYER NAME</div>
     <div class="mega-winner-pot">COLLECTED €<span id="giantWinnerPot">0</span></div>
-    <button class="mega-close-btn" onclick="closeMegaPopup()">Dismiss Window</button>
+    <button type="button" class="mega-close-btn" onclick="closeMegaPopup(event)">Dismiss Window</button>
 </div>
 
 <script>
@@ -455,13 +456,18 @@
     }
 
     function triggerGiantVictoryDisplay(name, amount) {
-        document.getElementById('giantWinnerName').innerText = name;
-        document.getElementById('giantWinnerPot').innerText = amount;
-        document.getElementById('giantWinnerPopup').classList.remove('hidden');
+        const popup = document.getElementById('giantWinnerPopup');
+        document.getElementById('giantWinnerName').innerText = name || 'PLAYER';
+        document.getElementById('giantWinnerPot').innerText = Number(amount || 0);
+        popup.classList.remove('hidden');
+        popup.setAttribute('aria-hidden', 'false');
     }
 
-    function closeMegaPopup() {
-        document.getElementById('giantWinnerPopup').classList.add('hidden');
+    function closeMegaPopup(e) {
+        if (e) e.preventDefault();
+        const popup = document.getElementById('giantWinnerPopup');
+        popup.classList.add('hidden');
+        popup.setAttribute('aria-hidden', 'true');
     }
 
     function advanceTurn() {
@@ -488,6 +494,14 @@
 
         XLSX.writeFile(workbook, `Teen_Patti_Table_${roomCode}_Report.xlsx`);
     }
+
+    window.addEventListener('DOMContentLoaded', () => {
+        closeMegaPopup();
+    });
+
+    window.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Escape') closeMegaPopup();
+    });
 </script>
 
 </body>
