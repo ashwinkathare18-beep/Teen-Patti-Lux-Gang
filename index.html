@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Teen Patti Companion — Stable Admin Sync</title>
+  <title>Teen Patti Companion — Admin Bootstrap Locked</title>
 
   <script src="https://cdn.ably.com/lib/ably.min-1.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -46,8 +46,8 @@
 <body>
   <div class="wrap">
     <h1>♠ Teen Patti Companion Ultimate ♠</h1>
-    <div class="topline">BUILD: TP-ADMIN-SYNC-PATCH-2026-07-03</div>
-    <div class="muted">Presence-free. Admin auto-resync enabled.</div>
+    <div class="topline">BUILD: TP-ADMIN-BOOTSTRAP-LOCKED-2026-07-03</div>
+    <div class="muted">Presence-free + admin bootstrap lock + join resync</div>
 
     <div id="setupScreen" class="card">
       <h2>Join Table</h2>
@@ -115,7 +115,7 @@
   </div>
 
   <script>
-    console.log("TP-ADMIN-SYNC-PATCH-LOADED");
+    console.log("TP-ADMIN-BOOTSTRAP-LOCKED-LOADED");
 
     const ABLY_API_KEY = 'fnVQhw.H7cEiA:Ipz3KJ6W9-CCUl4qGuYTTSA-rkCk5gBoFZfIeDUdrQQ';
     const ADMIN_SECRET_KEY = 'CHIPS77';
@@ -124,7 +124,8 @@
     let roomCode = "", myClientId = "", myName = "";
     let currentSelectedBet = 2, isAdminLoggingIn = false;
 
-    // PATCH: remembered player ids pinging joinRequest
+    // critical lock flags
+    let isBootstrappingAdmin = false;
     let knownJoinIds = new Set();
     let knownJoinNames = {};
 
@@ -184,6 +185,12 @@
 
       channel.subscribe("stateUpdate", (msg) => {
         if (!msg?.data) return;
+
+        // LOCK: do not let incoming stale state overwrite admin bootstrap for 1.5s
+        if (isAdminLoggingIn && isBootstrappingAdmin && gameState.adminId === myClientId) {
+          return;
+        }
+
         gameState = msg.data;
         updateGameUI();
       });
@@ -207,8 +214,9 @@
         }
       });
 
-      // admin bootstrap OR player join request
-      if (isAdminLoggingIn && !gameState.adminId) {
+      if (isAdminLoggingIn) {
+        // LOCKED ADMIN BOOTSTRAP
+        isBootstrappingAdmin = true;
         gameState.adminId = myClientId;
         knownJoinIds.add(myClientId);
         knownJoinNames[myClientId] = myName;
@@ -216,18 +224,21 @@
         if (!gameState.players.find(p => p.id === myClientId)) {
           gameState.players.push(makePlayer(myClientId, myName));
         }
+
         broadcastState();
+
+        setTimeout(() => { isBootstrappingAdmin = false; }, 1500);
       } else {
         channel.publish("requestState", { from: myClientId });
         channel.publish("joinRequest", { id: myClientId, name: myName });
       }
 
-      // PATCH: admin periodic resync from known pings
+      // admin resync loop
       setInterval(() => {
         if (myClientId === gameState.adminId) adminResyncPlayersFromPings();
       }, 2000);
 
-      // PATCH: players periodic ping so admin never misses a join
+      // player ping loop
       setInterval(() => {
         if (channel && myClientId && myClientId !== gameState.adminId) {
           channel.publish("joinRequest", { id: myClientId, name: myName });
@@ -240,12 +251,10 @@
       updateGameUI();
     }
 
-    // PATCH: resync helper
     function adminResyncPlayersFromPings() {
       if (myClientId !== gameState.adminId) return;
 
       let changed = false;
-
       if (!gameState.players.find(p => p.id === myClientId)) {
         gameState.players.push(makePlayer(myClientId, myName || "Admin"));
         changed = true;
@@ -264,9 +273,7 @@
     function broadcastState() {
       if (!channel) return;
       if (myClientId !== gameState.adminId) return;
-      channel.publish("stateUpdate", gameState, (err) => {
-        if (err) console.error("publish error:", err);
-      });
+      channel.publish("stateUpdate", gameState, () => updateGameUI());
     }
 
     function selectBetTab(val) {
@@ -311,9 +318,7 @@
       }
       if (currentSelectedBet < gameState.minimumRequiredChaal) currentSelectedBet = gameState.minimumRequiredChaal;
       for (let i = 2; i <= 5; i++) {
-        if (i === currentSelectedBet && i >= gameState.minimumRequiredChaal) {
-          document.getElementById(`tab-${i}`).classList.add("sel");
-        }
+        if (i === currentSelectedBet && i >= gameState.minimumRequiredChaal) document.getElementById(`tab-${i}`).classList.add("sel");
       }
 
       gameState.players.forEach((p) => {
