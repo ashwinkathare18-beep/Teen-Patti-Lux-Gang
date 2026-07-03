@@ -32,61 +32,33 @@ function connectToTable() {
   myName = document.getElementById('playerNameInput').value.trim();
   roomCode = document.getElementById('tableCodeInput').value.trim().toUpperCase();
 
-  if (!myName || !roomCode) return alert("Please provide both your Name and a Table Code.");
-  if (isAdminLoggingIn) {
-    const enteredPass = document.getElementById('adminPassInput').value.trim();
-    if (enteredPass !== ADMIN_SECRET_KEY) return alert("Incorrect Admin Master Passcode.");
+  if (!myName || !roomCode) {
+    alert("Please provide both your Name and a Table Code.");
+    return;
   }
 
-  // let Ably assign truly unique clientId
+  if (isAdminLoggingIn) {
+    const enteredPass = document.getElementById('adminPassInput').value.trim();
+    if (enteredPass !== ADMIN_SECRET_KEY) {
+      alert("Incorrect Admin Master Passcode. Authorization denied.");
+      return;
+    }
+  }
+
+  // IMPORTANT: do NOT force clientId here
   ably = new Ably.Realtime({ key: ABLY_API_KEY, echoMessages: false });
   channel = ably.channels.get('teen-patti-' + roomCode);
 
-  ably.connection.once('connected', () => {
-    myClientId = ably.auth.clientId || ('anon_' + Math.random().toString(36).slice(2, 10));
-
-    wireChannelHandlers();
-
-    channel.presence.enter({ name: myName }, (err) => {
-      if (err) return alert("Unable to join table: " + (err.message || ""));
-
-      // Admin bootstraps if empty
-      if (isAdminLoggingIn && !gameState.adminId) {
-        gameState.adminId = myClientId;
-        ensurePlayerExists(myClientId, myName);
-        broadcastState();
-      } else {
-        // Ask current admin for latest state, then ask to be added
-        channel.publish('requestState', { requesterId: myClientId });
-        channel.publish('joinRequest', { id: myClientId, name: myName });
-      }
-
-      document.getElementById('setupScreen').classList.add('hidden');
-      document.getElementById('displayTableCode').innerText = roomCode;
-      document.getElementById('gameScreen').classList.remove('hidden');
-      updateGameUI();
-    });
-  });
-
-  ably.connection.once('failed', () => alert("Ably connection failed."));
-}
-
-function wireChannelHandlers() {
-  channel.subscribe('stateUpdate', (msg) => {
-    if (!msg?.data) return;
-    gameState = msg.data;
+  channel.subscribe('stateUpdate', (message) => {
+    if (!message?.data) return;
+    gameState = message.data;
     updateGameUI();
   });
 
-  // New joiner asks for current state; admin responds
-  channel.subscribe('requestState', (msg) => {
-    if (myClientId !== gameState.adminId) return;
-    broadcastState();
-  });
-
-  // Admin-only mutation for adding players
+  // Admin only: handle join requests
   channel.subscribe('joinRequest', (msg) => {
     if (myClientId !== gameState.adminId) return;
+
     const id = msg?.data?.id;
     const name = msg?.data?.name || "Player";
     if (!id) return;
@@ -101,23 +73,64 @@ function wireChannelHandlers() {
       broadcastState();
     }
   });
-}
 
-function ensurePlayerExists(id, name) {
-  if (!gameState.players.find(p => p.id === id)) {
-    gameState.players.push({
-      id, name,
-      wallet: 0, totalInjected: 0,
-      blindsCount: 0, hasSeen: false, folded: false,
-      wins: 0, losses: 0
+  // Admin responds with current state
+  channel.subscribe('requestState', () => {
+    if (myClientId === gameState.adminId) broadcastState();
+  });
+
+  // Enter presence FIRST, then capture actual Ably clientId
+  channel.presence.enter({ name: myName }, (err) => {
+    if (err) {
+      alert("Unable to join table: " + (err.message || ""));
+      return;
+    }
+
+    // Get my actual presence member id
+    channel.presence.get((perr, members) => {
+      if (perr) {
+        alert("Presence read failed: " + (perr.message || ""));
+        return;
+      }
+
+      const me = members.find(m => m.data && m.data.name === myName) || members[members.length - 1];
+      if (!me || !me.clientId) {
+        alert("Could not resolve your player identity.");
+        return;
+      }
+
+      myClientId = me.clientId;
+
+      if (isAdminLoggingIn && !gameState.adminId) {
+        gameState.adminId = myClientId;
+        if (!gameState.players.find(p => p.id === myClientId)) {
+          gameState.players.push({
+            id: myClientId, name: myName,
+            wallet: 0, totalInjected: 0,
+            blindsCount: 0, hasSeen: false, folded: false,
+            wins: 0, losses: 0
+          });
+        }
+        broadcastState();
+      } else {
+        channel.publish('requestState', { from: myClientId });
+        channel.publish('joinRequest', { id: myClientId, name: myName });
+      }
+
+      document.getElementById('setupScreen').classList.add('hidden');
+      document.getElementById('displayTableCode').innerText = roomCode;
+      document.getElementById('gameScreen').classList.remove('hidden');
+      updateGameUI();
     });
-  }
+  });
 }
 
 function broadcastState() {
   if (!channel) return;
   if (myClientId !== gameState.adminId) return;
-  channel.publish('stateUpdate', gameState);
+  channel.publish('stateUpdate', gameState, (err) => {
+    if (err) console.error("publish error:", err);
+  });
 }
 
 function selectBetTab(val) {
