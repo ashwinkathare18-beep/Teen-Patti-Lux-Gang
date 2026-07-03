@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Teen Patti Companion — Admin Bootstrap Locked</title>
+  <title>Teen Patti Companion — Final Turn Fix</title>
 
   <script src="https://cdn.ably.com/lib/ably.min-1.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -29,7 +29,7 @@
     .pot { text-align:center; font-size:28px; font-weight:800; color:#4ade80; background:#064e3b; border:2px solid #059669; border-radius:10px; padding:10px; }
     .status { text-align:center; background:#1e293b; border:1px solid #475569; border-radius:8px; padding:10px; color:#a7f3d0; font-weight:700; margin-bottom:10px; }
     .tabs { display:flex; gap:6px; margin-bottom:10px; }
-    .tab { flex:1; text-align:center; padding:8px; border-radius:8px; border:2px solid #475569; background:#334155; cursor:pointer; font-weight:700; }
+    .tab { flex:1; text-align:center; padding:8px; border-radius:8px; border:2px solid #475569; background:#334155; cursor:pointer; font-weight:700; user-select:none; }
     .tab.sel { background:#2563eb; border-color:#3b82f6; }
     .tab.dis { opacity:.3; cursor:not-allowed; }
     .player { display:flex; justify-content:space-between; gap:8px; align-items:center; background:#334155; border:2px solid transparent; border-radius:8px; padding:10px; margin-bottom:8px; }
@@ -46,8 +46,8 @@
 <body>
   <div class="wrap">
     <h1>♠ Teen Patti Companion Ultimate ♠</h1>
-    <div class="topline">BUILD: TP-ADMIN-BOOTSTRAP-LOCKED-2026-07-03</div>
-    <div class="muted">Presence-free + admin bootstrap lock + join resync</div>
+    <div class="topline">BUILD: TP-FINAL-TURN-FIX-2026-07-03</div>
+    <div class="muted">Presence-free + Admin bootstrap lock + turn controls fixed</div>
 
     <div id="setupScreen" class="card">
       <h2>Join Table</h2>
@@ -115,7 +115,7 @@
   </div>
 
   <script>
-    console.log("TP-ADMIN-BOOTSTRAP-LOCKED-LOADED");
+    console.log("TP-FINAL-TURN-FIX-LOADED");
 
     const ABLY_API_KEY = 'fnVQhw.H7cEiA:Ipz3KJ6W9-CCUl4qGuYTTSA-rkCk5gBoFZfIeDUdrQQ';
     const ADMIN_SECRET_KEY = 'CHIPS77';
@@ -124,7 +124,6 @@
     let roomCode = "", myClientId = "", myName = "";
     let currentSelectedBet = 2, isAdminLoggingIn = false;
 
-    // critical lock flags
     let isBootstrappingAdmin = false;
     let knownJoinIds = new Set();
     let knownJoinNames = {};
@@ -144,15 +143,10 @@
 
     function makePlayer(id, name) {
       return {
-        id,
-        name: name || "Player",
-        wallet: 0,
-        totalInjected: 0,
-        blindsCount: 0,
-        hasSeen: false,
-        folded: false,
-        wins: 0,
-        losses: 0
+        id, name: name || "Player",
+        wallet: 0, totalInjected: 0,
+        blindsCount: 0, hasSeen: false, folded: false,
+        wins: 0, losses: 0
       };
     }
 
@@ -185,12 +179,7 @@
 
       channel.subscribe("stateUpdate", (msg) => {
         if (!msg?.data) return;
-
-        // LOCK: do not let incoming stale state overwrite admin bootstrap for 1.5s
-        if (isAdminLoggingIn && isBootstrappingAdmin && gameState.adminId === myClientId) {
-          return;
-        }
-
+        if (isAdminLoggingIn && isBootstrappingAdmin && gameState.adminId === myClientId) return;
         gameState = msg.data;
         updateGameUI();
       });
@@ -215,7 +204,6 @@
       });
 
       if (isAdminLoggingIn) {
-        // LOCKED ADMIN BOOTSTRAP
         isBootstrappingAdmin = true;
         gameState.adminId = myClientId;
         knownJoinIds.add(myClientId);
@@ -226,19 +214,16 @@
         }
 
         broadcastState();
-
         setTimeout(() => { isBootstrappingAdmin = false; }, 1500);
       } else {
         channel.publish("requestState", { from: myClientId });
         channel.publish("joinRequest", { id: myClientId, name: myName });
       }
 
-      // admin resync loop
       setInterval(() => {
         if (myClientId === gameState.adminId) adminResyncPlayersFromPings();
       }, 2000);
 
-      // player ping loop
       setInterval(() => {
         if (channel && myClientId && myClientId !== gameState.adminId) {
           channel.publish("joinRequest", { id: myClientId, name: myName });
@@ -253,8 +238,8 @@
 
     function adminResyncPlayersFromPings() {
       if (myClientId !== gameState.adminId) return;
-
       let changed = false;
+
       if (!gameState.players.find(p => p.id === myClientId)) {
         gameState.players.push(makePlayer(myClientId, myName || "Admin"));
         changed = true;
@@ -277,7 +262,9 @@
     }
 
     function selectBetTab(val) {
-      if (!gameState.handActive) return;
+      const activePlayerObj = gameState.players[gameState.turnIndex];
+      const myTurn = !!(gameState.handActive && activePlayerObj && activePlayerObj.id === myClientId);
+      if (!myTurn) return;
       if (val < gameState.minimumRequiredChaal) return;
       currentSelectedBet = val;
       for (let i = 2; i <= 5; i++) document.getElementById(`tab-${i}`).classList.remove("sel");
@@ -302,27 +289,29 @@
         return;
       }
 
-      const active = gameState.players[gameState.turnIndex];
-      if (gameState.handActive && active) {
-        document.getElementById("turnIndicator").innerText = `PENDING TURN: ${esc(active.name).toUpperCase()}`;
-        document.getElementById("turnIndicator").style.color = active.id === myClientId ? "#fbbf24" : "#a7f3d0";
+      const activePlayerObj = gameState.players[gameState.turnIndex];
+      const myPlayer = gameState.players.find(p => p.id === myClientId);
+
+      if (gameState.handActive && activePlayerObj) {
+        document.getElementById("turnIndicator").innerText = `PENDING TURN: ${esc(activePlayerObj.name).toUpperCase()}`;
+        document.getElementById("turnIndicator").style.color = activePlayerObj.id === myClientId ? "#fbbf24" : "#a7f3d0";
       } else {
         document.getElementById("turnIndicator").innerText = "Waiting for Admin to credit buy-ins / start next hand...";
         document.getElementById("turnIndicator").style.color = "#94a3b8";
       }
 
-      for (let i = 2; i <= 5; i++) {
-        const el = document.getElementById(`tab-${i}`);
-        if (i < gameState.minimumRequiredChaal) { el.classList.add("dis"); el.classList.remove("sel"); }
-        else el.classList.remove("dis");
-      }
       if (currentSelectedBet < gameState.minimumRequiredChaal) currentSelectedBet = gameState.minimumRequiredChaal;
+      const myTurn = !!(gameState.handActive && activePlayerObj && activePlayerObj.id === myClientId);
+
       for (let i = 2; i <= 5; i++) {
-        if (i === currentSelectedBet && i >= gameState.minimumRequiredChaal) document.getElementById(`tab-${i}`).classList.add("sel");
+        const tab = document.getElementById(`tab-${i}`);
+        tab.classList.remove("sel", "dis");
+        if (!myTurn || i < gameState.minimumRequiredChaal) tab.classList.add("dis");
+        if (i === currentSelectedBet && myTurn && i >= gameState.minimumRequiredChaal) tab.classList.add("sel");
       }
 
       gameState.players.forEach((p) => {
-        const isCurrent = gameState.handActive && active && active.id === p.id;
+        const isCurrent = gameState.handActive && activePlayerObj && activePlayerObj.id === p.id;
         const status = p.folded ? "FOLDED" : (p.blindsCount < 2 ? `Blinds left: ${2 - p.blindsCount}` : "Chaal Only");
         const net = p.wallet - p.totalInjected;
 
@@ -360,9 +349,9 @@
         if (!s.innerHTML) s.innerHTML = `<span class="small">No active hand running</span>`;
       }
 
-      if (gameState.handActive && active && active.id === myClientId) {
-        document.getElementById("blindActionBtn").disabled = (active.blindsCount >= 2 || active.hasSeen === true);
-        document.getElementById("chaalActionBtn").disabled = false;
+      if (myTurn && myPlayer) {
+        document.getElementById("blindActionBtn").disabled = (myPlayer.hasSeen || myPlayer.blindsCount >= 2 || myPlayer.wallet < 1);
+        document.getElementById("chaalActionBtn").disabled = (myPlayer.wallet < currentSelectedBet);
       } else {
         document.getElementById("blindActionBtn").disabled = true;
         document.getElementById("chaalActionBtn").disabled = true;
@@ -380,8 +369,12 @@
 
     function hostResetHand() {
       if (myClientId !== gameState.adminId) return;
+
       const broke = gameState.players.filter(p => p.wallet < 1);
-      if (broke.length) return alert(`Cannot start hand! Players need buy-in: ${broke.map(p => p.name).join(", ")}`);
+      if (broke.length) {
+        alert(`Cannot start hand! Players need buy-in: ${broke.map(p => p.name).join(", ")}`);
+        return;
+      }
 
       gameState.pot = 0;
       gameState.minimumRequiredChaal = 2;
@@ -395,8 +388,10 @@
         gameState.pot += 1;
       });
 
-      gameState.turnIndex = 0;
+      const adminIdx = gameState.players.findIndex(p => p.id === gameState.adminId);
+      gameState.turnIndex = adminIdx >= 0 ? adminIdx : 0;
       gameState.handActive = true;
+
       broadcastState();
     }
 
@@ -407,9 +402,11 @@
       let bet = 0;
       if (moveType === "Blind") {
         if (p.hasSeen || p.blindsCount >= 2) return;
-        bet = 1; p.blindsCount++;
+        bet = 1;
+        p.blindsCount++;
       } else if (moveType === "Chaal") {
-        bet = currentSelectedBet; p.hasSeen = true;
+        bet = currentSelectedBet;
+        p.hasSeen = true;
         if (bet > gameState.minimumRequiredChaal) gameState.minimumRequiredChaal = bet;
       } else if (moveType === "Fold") {
         p.folded = true;
@@ -421,20 +418,34 @@
       gameState.pot += bet;
 
       const active = gameState.players.filter(x => !x.folded);
-      if (active.length === 1) executeVictoryDataCleanup(active[0].id);
-      else { advanceTurn(); broadcastState(); }
+      if (active.length === 1) {
+        executeVictoryDataCleanup(active[0].id);
+      } else {
+        advanceTurn();
+        if (!gameState.handActive) {
+          const remaining = gameState.players.filter(x => !x.folded && x.wallet >= 1);
+          if (remaining.length === 1) executeVictoryDataCleanup(remaining[0].id);
+        } else {
+          broadcastState();
+        }
+      }
     }
 
     function advanceTurn() {
       if (!gameState.players?.length) return;
-      let tries = 0;
+
+      let attempts = 0;
+      const n = gameState.players.length;
+
       do {
-        gameState.turnIndex = (gameState.turnIndex + 1) % gameState.players.length;
-        tries++;
-      } while (
-        tries <= gameState.players.length &&
-        (gameState.players[gameState.turnIndex].folded || gameState.players[gameState.turnIndex].wallet < 1)
-      );
+        gameState.turnIndex = (gameState.turnIndex + 1) % n;
+        attempts++;
+        const p = gameState.players[gameState.turnIndex];
+
+        if (!p.folded && p.wallet >= 1) return;
+      } while (attempts <= n);
+
+      gameState.handActive = false;
     }
 
     function adminDeclareWinner(winnerId) {
