@@ -400,7 +400,10 @@ document.getElementById('blindActionBtn').innerText = `Blind (€1)`;
     }
   }
 
-  function hostResetHand() {
+  function hostResetHand() // ensure turn starts from first non-folded/non-broke player
+if (gameState.players[gameState.turnIndex]?.wallet < 1 || gameState.players[gameState.turnIndex]?.folded) {
+  advanceTurn();
+}{
     if (myClientId !== gameState.adminId) return;
 
     let brokePlayers = gameState.players.filter(p => p.wallet < 1);
