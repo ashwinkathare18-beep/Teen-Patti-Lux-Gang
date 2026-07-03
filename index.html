@@ -229,10 +229,12 @@
     }
   });
 
-  if (changed) broadcastState();
+ if (changed) broadcastState();
 });
 
-  function syncJoiner(id, name) {
+} // closes connectToTable
+
+function syncJoiner(id, name) {
     if (!gameState.players.find(p => p.id === id)) {
 gameState.players.push({ id, name, wallet: 0, totalInjected: 0, blindsCount: 0, hasSeen: false, folded: false, wins: 0, losses: 0 });
       broadcastState();
