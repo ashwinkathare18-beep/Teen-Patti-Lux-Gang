@@ -3,13 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<div style="text-align:center;color:#22c55e;font-weight:bold;">BUILD: TP-LIVE-2026-07-03-A</div>
   <title>Live Teen Patti Companion Ultimate</title>
   <script src="https://cdn.ably.com/lib/ably.min-1.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 15px; }
-    .container { max-width: 500px; margin: 0 auto; }
+    .container { max-width: 520px; margin: 0 auto; }
     .card { background: #1e293b; padding: 20px; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border: 1px solid #334155; }
     h1, h2, h3 { margin-top: 0; color: #fbbf24; text-align: center; }
     .pot-display { font-size: 32px; text-align: center; font-weight: bold; color: #4ade80; background: #064e3b; padding: 15px; border-radius: 8px; border: 2px solid #059669; }
@@ -20,12 +19,10 @@
     button.blind-btn { background: #d97706; }
     button.chaal-btn { background: #059669; }
     button.fold-btn { background: #dc2626; }
-
     .bet-tabs { display: flex; gap: 8px; margin-bottom: 12px; }
     .bet-tab { background: #334155; border: 2px solid #475569; padding: 10px; border-radius: 8px; font-weight: bold; text-align: center; flex: 1; cursor: pointer; transition: all 0.2s; user-select: none; }
     .bet-tab.selected { background: #2563eb; border-color: #3b82f6; color: #fff; transform: scale(1.03); }
     .bet-tab.disabled-tab { opacity: 0.25; cursor: not-allowed; background: #0f172a; border-color: #1e293b; color: #475569; }
-
     .player-badge { display: flex; justify-content: space-between; padding: 12px; background: #334155; border-radius: 6px; margin-bottom: 8px; align-items: center; border: 2px solid transparent; }
     .active-turn { border: 2px solid #fbbf24; background: #1e3a8a; }
     .history-text { font-size: 11px; color: #94a3b8; margin-top: 4px; font-family: monospace; }
@@ -37,20 +34,17 @@
     .admin-buyin-btn:hover { background: #4b5563; }
     .badge-left { display: flex; flex-direction: column; }
     .controls-right { display: flex; flex-direction: column; align-items: flex-end; }
-
     .profit-pos { color: #4ade80; font-weight: bold; }
     .profit-neg { color: #f87171; font-weight: bold; }
-
     .admin-toggle-link { text-align: center; font-size: 12px; margin-top: 15px; color: #64748b; cursor: pointer; text-decoration: underline; }
-
     .split-pot-panel { background: #0f172a; border: 1px dashed #4b5563; padding: 10px; border-radius: 6px; margin-top: 10px; display: flex; flex-direction: column; gap: 5px; width: 100%; }
     .split-row { display: flex; align-items: center; gap: 8px; font-size: 13px; }
   </style>
 </head>
 <body>
-
 <div class="container">
   <h1>♠ Teen Patti Companion Ultimate ♠</h1>
+  <div style="text-align:center;color:#22c55e;font-weight:bold;margin-bottom:10px;">BUILD: TP-LIVE-FINAL-ABLY-CLIENTID</div>
 
   <div id="setupScreen" class="card">
     <h2>Join a Table</h2>
@@ -62,12 +56,10 @@
       <label>Table Code</label>
       <input type="text" id="tableCodeInput" placeholder="e.g. GOLD77" />
     </div>
-
     <div class="input-group" id="adminPassGroup" style="display:none; border-left: 3px solid #fbbf24; padding-left: 10px; margin-top: 10px;">
       <label style="color:#fbbf24; font-weight: bold;">Admin Master Passcode</label>
       <input type="password" id="adminPassInput" placeholder="Enter security key..." />
     </div>
-
     <button onclick="connectToTable()" style="margin-top:10px;">Enter Table</button>
     <div class="admin-toggle-link" onclick="toggleAdminField()" id="toggleText">Login as Table Admin</div>
   </div>
@@ -104,7 +96,6 @@
         <div class="bet-tab" onclick="selectBetTab(4)" id="tab-4">€4</div>
         <div class="bet-tab" onclick="selectBetTab(5)" id="tab-5">€5</div>
       </div>
-
       <div class="flex-row">
         <button id="blindActionBtn" class="blind-btn" onclick="submitMove('Blind')">Blind (€1)</button>
         <button id="chaalActionBtn" class="chaal-btn" onclick="submitMove('Chaal')">Chaal</button>
@@ -115,7 +106,6 @@
     <div class="card">
       <h3>Players & Live Session Ledger</h3>
       <div id="playerList"></div>
-
       <button id="startHandBtn" style="background:#7c3aed; margin-top:15px; display:none;" onclick="hostResetHand()">♥ Start Next Hand ♥</button>
       <button id="downloadExcelBtn" style="background:#0284c7; margin-top:8px; display:none;" onclick="exportToExcel()">📊 Download Excel Summary</button>
     </div>
@@ -142,10 +132,8 @@
     minimumRequiredChaal: 2
   };
 
-  function safeName(text) {
-    return String(text || "").replace(/[<>&"']/g, s => ({
-      "<":"&lt;", ">":"&gt;", "&":"&amp;", "\"":"&quot;", "'":"&#39;"
-    }[s]));
+  function esc(s) {
+    return String(s ?? "").replace(/[<>&"']/g, m => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[m]));
   }
 
   function toggleAdminField() {
@@ -181,20 +169,24 @@
       }
     }
 
-    // IMPORTANT: do not force clientId; Ably assigns unique one
-    ably = new Ably.Realtime({ key: ABLY_API_KEY, echoMessages: false });
+    myClientId = "tp_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8);
+
+    ably = new Ably.Realtime({
+      key: ABLY_API_KEY,
+      clientId: myClientId,
+      echoMessages: false
+    });
+
     channel = ably.channels.get('teen-patti-' + roomCode);
 
     channel.subscribe('stateUpdate', (message) => {
-      if (!message || !message.data) return;
+      if (!message?.data) return;
       gameState = message.data;
       updateGameUI();
     });
 
     channel.subscribe('requestState', () => {
-      if (myClientId === gameState.adminId) {
-        broadcastState();
-      }
+      if (myClientId === gameState.adminId) broadcastState();
     });
 
     channel.subscribe('joinRequest', (msg) => {
@@ -205,15 +197,7 @@
 
       if (!gameState.players.find(p => p.id === id)) {
         gameState.players.push({
-          id,
-          name,
-          wallet: 0,
-          totalInjected: 0,
-          blindsCount: 0,
-          hasSeen: false,
-          folded: false,
-          wins: 0,
-          losses: 0
+          id, name, wallet: 0, totalInjected: 0, blindsCount: 0, hasSeen: false, folded: false, wins: 0, losses: 0
         });
         broadcastState();
       }
@@ -225,55 +209,23 @@
         return;
       }
 
-      // Resolve my actual Ably clientId from presence
-      channel.presence.get((perr, members) => {
-        if (perr) {
-          alert("Presence read failed: " + (perr.message || ""));
-          return;
+      if (isAdminLoggingIn && !gameState.adminId) {
+        gameState.adminId = myClientId;
+        if (!gameState.players.find(p => p.id === myClientId)) {
+          gameState.players.push({
+            id: myClientId, name: myName, wallet: 0, totalInjected: 0, blindsCount: 0, hasSeen: false, folded: false, wins: 0, losses: 0
+          });
         }
+        broadcastState();
+      } else {
+        channel.publish('requestState', { from: myClientId });
+        channel.publish('joinRequest', { id: myClientId, name: myName });
+      }
 
-        let me = null;
-        for (let i = members.length - 1; i >= 0; i--) {
-          if (members[i].data && members[i].data.name === myName) {
-            me = members[i];
-            break;
-          }
-        }
-        if (!me && members.length > 0) me = members[members.length - 1];
-
-        if (!me || !me.clientId) {
-          alert("Could not resolve your player identity.");
-          return;
-        }
-
-        myClientId = me.clientId;
-
-        if (isAdminLoggingIn && !gameState.adminId) {
-          gameState.adminId = myClientId;
-          if (!gameState.players.find(p => p.id === myClientId)) {
-            gameState.players.push({
-              id: myClientId,
-              name: myName,
-              wallet: 0,
-              totalInjected: 0,
-              blindsCount: 0,
-              hasSeen: false,
-              folded: false,
-              wins: 0,
-              losses: 0
-            });
-          }
-          broadcastState();
-        } else {
-          channel.publish('requestState', { from: myClientId });
-          channel.publish('joinRequest', { id: myClientId, name: myName });
-        }
-
-        document.getElementById('setupScreen').classList.add('hidden');
-        document.getElementById('displayTableCode').innerText = roomCode;
-        document.getElementById('gameScreen').classList.remove('hidden');
-        updateGameUI();
-      });
+      document.getElementById('setupScreen').classList.add('hidden');
+      document.getElementById('displayTableCode').innerText = roomCode;
+      document.getElementById('gameScreen').classList.remove('hidden');
+      updateGameUI();
     });
   }
 
@@ -289,10 +241,7 @@
     if (!gameState.handActive) return;
     if (val < gameState.minimumRequiredChaal) return;
     currentSelectedBet = val;
-
-    for (let i = 2; i <= 5; i++) {
-      document.getElementById(`tab-${i}`).classList.remove('selected');
-    }
+    for (let i = 2; i <= 5; i++) document.getElementById(`tab-${i}`).classList.remove('selected');
     document.getElementById(`tab-${val}`).classList.add('selected');
   }
 
@@ -311,7 +260,7 @@
     if (isAdmin) document.getElementById('adminSplitPanel').classList.remove('hidden');
     else document.getElementById('adminSplitPanel').classList.add('hidden');
 
-    if (!gameState.players || gameState.players.length === 0) {
+    if (!gameState.players?.length) {
       document.getElementById('turnIndicator').innerText = "Waiting for players...";
       return;
     }
@@ -319,14 +268,13 @@
     const activePlayerObj = gameState.players[gameState.turnIndex];
 
     if (gameState.handActive && activePlayerObj) {
-      document.getElementById('turnIndicator').innerText = `PENDING TURN: ${safeName(activePlayerObj.name).toUpperCase()}`;
+      document.getElementById('turnIndicator').innerText = `PENDING TURN: ${esc(activePlayerObj.name).toUpperCase()}`;
       document.getElementById('turnIndicator').style.color = activePlayerObj.id === myClientId ? "#fbbf24" : "#a7f3d0";
     } else {
       document.getElementById('turnIndicator').innerText = "Waiting for Admin to credit buy-ins / start next hand...";
       document.getElementById('turnIndicator').style.color = "#94a3b8";
     }
 
-    // Bet tabs
     for (let i = 2; i <= 5; i++) {
       const el = document.getElementById(`tab-${i}`);
       if (i < gameState.minimumRequiredChaal) {
@@ -355,7 +303,7 @@
 
       let html = `
         <div class="badge-left">
-          <strong>${safeName(p.name)} ${p.id === myClientId ? '(You)' : ''}</strong>
+          <strong>${esc(p.name)} ${p.id === myClientId ? '(You)' : ''}</strong>
           <div style="font-size:12px; color:#cbd5e1;">Bal: €${p.wallet} | <span style="color:#f3f4f6;">${statusLabel}</span></div>
           <div style="font-size:12px; margin-top:2px;">Net P/L: <span class="${profitClass}">${profitSign}${Math.abs(netProfit)}</span></div>
           <div class="history-text">Hst: W:${p.wins} | L:${p.losses}</div>
@@ -382,7 +330,6 @@
       listContainer.appendChild(div);
     });
 
-    // Split panel rows
     if (isAdmin) {
       const checkboxContainer = document.getElementById('splitCheckboxes');
       checkboxContainer.innerHTML = '';
@@ -391,17 +338,14 @@
           checkboxContainer.innerHTML += `
             <div class="split-row">
               <input type="checkbox" id="split-chk-${p.id}" value="${p.id}">
-              <label for="split-chk-${p.id}">${safeName(p.name)}</label>
+              <label for="split-chk-${p.id}">${esc(p.name)}</label>
             </div>
           `;
         }
       });
-      if (checkboxContainer.innerHTML === '') {
-        checkboxContainer.innerHTML = '<span style="color:#64748b; font-size:11px;">No active hand running</span>';
-      }
+      if (!checkboxContainer.innerHTML) checkboxContainer.innerHTML = '<span style="color:#64748b; font-size:11px;">No active hand running</span>';
     }
 
-    // Action pad behavior
     if (gameState.handActive && activePlayerObj && activePlayerObj.id === myClientId) {
       document.getElementById('actionPad').style.opacity = "1";
       document.getElementById('actionPad').style.pointerEvents = "auto";
@@ -426,12 +370,8 @@
 
   function hostResetHand() {
     if (myClientId !== gameState.adminId) return;
-
     const broke = gameState.players.filter(p => p.wallet < 1);
-    if (broke.length) {
-      alert(`Cannot start hand! Players need buy-in: ${broke.map(p => p.name).join(', ')}`);
-      return;
-    }
+    if (broke.length) return alert(`Cannot start hand! Players need buy-in: ${broke.map(p => p.name).join(', ')}`);
 
     gameState.pot = 0;
     gameState.minimumRequiredChaal = 2;
@@ -455,7 +395,6 @@
     if (!currentPlayer || currentPlayer.id !== myClientId || !gameState.handActive) return;
 
     let betSize = 0;
-
     if (moveType === 'Blind') {
       if (currentPlayer.hasSeen || currentPlayer.blindsCount >= 2) return;
       betSize = 1;
@@ -468,25 +407,18 @@
       currentPlayer.folded = true;
     }
 
-    if (moveType !== 'Fold' && currentPlayer.wallet < betSize) {
-      alert("Insufficient chips! Ask Admin to add coins.");
-      return;
-    }
+    if (moveType !== 'Fold' && currentPlayer.wallet < betSize) return alert("Insufficient chips! Ask Admin to add coins.");
 
     currentPlayer.wallet -= betSize;
     gameState.pot += betSize;
 
     const active = gameState.players.filter(p => !p.folded);
-    if (active.length === 1) {
-      executeVictoryDataCleanup(active[0].id);
-    } else {
-      advanceTurn();
-      broadcastState();
-    }
+    if (active.length === 1) executeVictoryDataCleanup(active[0].id);
+    else { advanceTurn(); broadcastState(); }
   }
 
   function advanceTurn() {
-    if (!gameState.players || gameState.players.length === 0) return;
+    if (!gameState.players?.length) return;
     let attempts = 0;
     do {
       gameState.turnIndex = (gameState.turnIndex + 1) % gameState.players.length;
@@ -505,11 +437,9 @@
   function executeVictoryDataCleanup(winnerId) {
     const winner = gameState.players.find(p => p.id === winnerId);
     if (!winner) return;
-
     winner.wallet += gameState.pot;
     winner.wins += 1;
     gameState.players.forEach(p => { if (p.id !== winnerId) p.losses += 1; });
-
     gameState.pot = 0;
     gameState.handActive = false;
     broadcastState();
@@ -517,26 +447,17 @@
 
   function adminExecuteSplit() {
     if (myClientId !== gameState.adminId) return;
-
-    const checkedIds = [];
+    let checkedIds = [];
     gameState.players.forEach(p => {
       const el = document.getElementById(`split-chk-${p.id}`);
       if (el && el.checked) checkedIds.push(p.id);
     });
-
-    if (checkedIds.length === 0) {
-      alert("Select at least one player.");
-      return;
-    }
+    if (!checkedIds.length) return alert("Select at least one player.");
 
     const share = Math.floor((gameState.pot / checkedIds.length) * 100) / 100;
     gameState.players.forEach(p => {
-      if (checkedIds.includes(p.id)) {
-        p.wallet += share;
-        p.wins += 1;
-      } else {
-        p.losses += 1;
-      }
+      if (checkedIds.includes(p.id)) { p.wallet += share; p.wins += 1; }
+      else p.losses += 1;
     });
 
     gameState.pot = 0;
@@ -545,8 +466,7 @@
   }
 
   function exportToExcel() {
-    if (!gameState.players || gameState.players.length === 0) return;
-
+    if (!gameState.players?.length) return;
     const data = gameState.players.map(p => ({
       "Player Name": p.name,
       "Current Wallet Balance (€)": p.wallet,
