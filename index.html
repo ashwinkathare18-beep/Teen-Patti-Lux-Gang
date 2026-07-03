@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Teen Patti Companion — FINAL HOTFIX</title>
+  <title>Teen Patti Companion — Stable ID FINAL</title>
 
   <script src="https://cdn.ably.com/lib/ably.min-1.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -46,8 +46,8 @@
 <body>
   <div class="wrap">
     <h1>♠ Teen Patti Companion Ultimate ♠</h1>
-    <div class="topline">BUILD: TP-FINAL-HOTFIX-LAST-2026-07-03</div>
-    <div class="muted">Presence-free + admin sync + player turn hotfix</div>
+    <div class="topline">BUILD: TP-STABLE-ID-FINAL-2026-07-03</div>
+    <div class="muted">Presence-free + admin sync + stable client id fix</div>
 
     <div id="setupScreen" class="card">
       <h2>Join Table</h2>
@@ -115,7 +115,7 @@
   </div>
 
   <script>
-    console.log("TP-FINAL-HOTFIX-LOADED");
+    console.log("TP-STABLE-ID-FINAL-LOADED");
 
     const ABLY_API_KEY = 'fnVQhw.H7cEiA:Ipz3KJ6W9-CCUl4qGuYTTSA-rkCk5gBoFZfIeDUdrQQ';
     const ADMIN_SECRET_KEY = 'CHIPS77';
@@ -139,6 +139,10 @@
 
     function esc(s) {
       return String(s ?? "").replace(/[<>&"']/g, m => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[m]));
+    }
+
+    function normalizeNameToId(name) {
+      return String(name || "").trim().toLowerCase().replace(/[^a-z0-9]/g, "_");
     }
 
     function makePlayer(id, name) {
@@ -172,7 +176,16 @@
         if (pass !== ADMIN_SECRET_KEY) return alert("Incorrect Admin Master Passcode.");
       }
 
-      myClientId = "tp_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8);
+      // STABLE ID PATCH
+      myClientId = "tp_" + roomCode + "_" + normalizeNameToId(myName);
+
+      // duplicate name guard
+      if (!isAdminLoggingIn) {
+        const existing = gameState.players.find(p => p.id === myClientId);
+        if (existing && existing.name !== myName) {
+          return alert("Name conflict. Please use a unique player name.");
+        }
+      }
 
       ably = new Ably.Realtime({ key: ABLY_API_KEY, echoMessages: false });
       channel = ably.channels.get("teen-patti-" + roomCode);
@@ -183,7 +196,6 @@
 
         gameState = msg.data;
 
-        // HOTFIX normalize selected bet after every sync
         if (currentSelectedBet < (gameState.minimumRequiredChaal || 2)) {
           currentSelectedBet = gameState.minimumRequiredChaal || 2;
         }
@@ -277,9 +289,7 @@
       if (val < min) return;
 
       currentSelectedBet = val;
-      for (let i = 2; i <= 5; i++) {
-        document.getElementById(`tab-${i}`).classList.remove("sel");
-      }
+      for (let i = 2; i <= 5; i++) document.getElementById(`tab-${i}`).classList.remove("sel");
       document.getElementById(`tab-${val}`).classList.add("sel");
     }
 
@@ -367,7 +377,6 @@
       if (myTurn && myPlayer) {
         const canBlind = (!myPlayer.hasSeen && myPlayer.blindsCount < 2 && myPlayer.wallet >= 1);
         const canChaal = (myPlayer.wallet >= currentSelectedBet);
-
         document.getElementById("blindActionBtn").disabled = !canBlind;
         document.getElementById("chaalActionBtn").disabled = !canChaal;
         document.getElementById("actionPad").style.opacity = "1";
@@ -421,7 +430,7 @@
       let bet = 0;
       if (moveType === "Blind") {
         if (p.hasSeen || p.blindsCount >= 2) return;
-        bet = 1; // fixed: independent of selected tab
+        bet = 1;
         p.blindsCount++;
       } else if (moveType === "Chaal") {
         bet = currentSelectedBet;
