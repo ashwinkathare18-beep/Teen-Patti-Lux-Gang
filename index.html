@@ -382,11 +382,13 @@
     gameState.minimumRequiredChaal = 2;
     currentSelectedBet = 2;
     gameState.players.forEach(p => {
-      p.folded = false;
-      p.blindsCount = 0;
-      p.wallet -= 1;
-      gameState.pot += 1;
-    });
+  p.folded = false;
+  p.blindsCount = 0;
+  p.hasSeen = false;
+  p.wallet -= 1;
+  gameState.pot += 1;
+});
+
     gameState.turnIndex = 0;
     gameState.handActive = true;
     broadcastState();
