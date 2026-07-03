@@ -3,9 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Teen Patti Companion — No Presence Build</title>
+  <title>Teen Patti Companion — Stable Admin Sync</title>
 
-  <!-- External libs -->
   <script src="https://cdn.ably.com/lib/ably.min-1.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
@@ -47,10 +46,9 @@
 <body>
   <div class="wrap">
     <h1>♠ Teen Patti Companion Ultimate ♠</h1>
-    <div class="topline">BUILD: TP-NO-PRESENCE-LOCKED-V1</div>
-    <div class="muted">No Presence API used in this build.</div>
+    <div class="topline">BUILD: TP-ADMIN-SYNC-PATCH-2026-07-03</div>
+    <div class="muted">Presence-free. Admin auto-resync enabled.</div>
 
-    <!-- Setup -->
     <div id="setupScreen" class="card">
       <h2>Join Table</h2>
       <div class="col">
@@ -69,7 +67,6 @@
       <div id="toggleText" class="toggle" onclick="toggleAdminField()">Login as Table Admin</div>
     </div>
 
-    <!-- Game -->
     <div id="gameScreen" class="hidden">
       <div class="card">
         <div class="small">
@@ -117,9 +114,8 @@
     </div>
   </div>
 
-  <!-- ONE AND ONLY APP SCRIPT BLOCK -->
   <script>
-    console.log("NO_PRESENCE_BUILD_CONFIRMED_V1");
+    console.log("TP-ADMIN-SYNC-PATCH-LOADED");
 
     const ABLY_API_KEY = 'fnVQhw.H7cEiA:Ipz3KJ6W9-CCUl4qGuYTTSA-rkCk5gBoFZfIeDUdrQQ';
     const ADMIN_SECRET_KEY = 'CHIPS77';
@@ -127,6 +123,10 @@
     let ably = null, channel = null;
     let roomCode = "", myClientId = "", myName = "";
     let currentSelectedBet = 2, isAdminLoggingIn = false;
+
+    // PATCH: remembered player ids pinging joinRequest
+    let knownJoinIds = new Set();
+    let knownJoinNames = {};
 
     let gameState = {
       adminId: "",
@@ -137,11 +137,22 @@
       minimumRequiredChaal: 2
     };
 
-    // hard guard: if any leftover code tries presence, explode clearly
-    const _presenceGuard = () => { throw new Error("Presence API is disabled in this build."); };
-
     function esc(s) {
       return String(s ?? "").replace(/[<>&"']/g, m => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[m]));
+    }
+
+    function makePlayer(id, name) {
+      return {
+        id,
+        name: name || "Player",
+        wallet: 0,
+        totalInjected: 0,
+        blindsCount: 0,
+        hasSeen: false,
+        folded: false,
+        wins: 0,
+        losses: 0
+      };
     }
 
     function toggleAdminField() {
@@ -171,11 +182,6 @@
       ably = new Ably.Realtime({ key: ABLY_API_KEY, echoMessages: false });
       channel = ably.channels.get("teen-patti-" + roomCode);
 
-      // monkey-patch presence to ensure zero presence usage
-      channel.presence.enter = _presenceGuard;
-      channel.presence.get = _presenceGuard;
-      channel.presence.subscribe = _presenceGuard;
-
       channel.subscribe("stateUpdate", (msg) => {
         if (!msg?.data) return;
         gameState = msg.data;
@@ -192,27 +198,23 @@
         const name = msg?.data?.name || "Player";
         if (!id) return;
 
+        knownJoinIds.add(id);
+        knownJoinNames[id] = name;
+
         if (!gameState.players.find(p => p.id === id)) {
-          gameState.players.push({
-            id, name,
-            wallet: 0, totalInjected: 0,
-            blindsCount: 0, hasSeen: false, folded: false,
-            wins: 0, losses: 0
-          });
+          gameState.players.push(makePlayer(id, name));
           broadcastState();
         }
       });
 
-      // NO PRESENCE FLOW
+      // admin bootstrap OR player join request
       if (isAdminLoggingIn && !gameState.adminId) {
         gameState.adminId = myClientId;
+        knownJoinIds.add(myClientId);
+        knownJoinNames[myClientId] = myName;
+
         if (!gameState.players.find(p => p.id === myClientId)) {
-          gameState.players.push({
-            id: myClientId, name: myName,
-            wallet: 0, totalInjected: 0,
-            blindsCount: 0, hasSeen: false, folded: false,
-            wins: 0, losses: 0
-          });
+          gameState.players.push(makePlayer(myClientId, myName));
         }
         broadcastState();
       } else {
@@ -220,10 +222,43 @@
         channel.publish("joinRequest", { id: myClientId, name: myName });
       }
 
+      // PATCH: admin periodic resync from known pings
+      setInterval(() => {
+        if (myClientId === gameState.adminId) adminResyncPlayersFromPings();
+      }, 2000);
+
+      // PATCH: players periodic ping so admin never misses a join
+      setInterval(() => {
+        if (channel && myClientId && myClientId !== gameState.adminId) {
+          channel.publish("joinRequest", { id: myClientId, name: myName });
+        }
+      }, 3000);
+
       document.getElementById("setupScreen").classList.add("hidden");
       document.getElementById("displayTableCode").innerText = roomCode;
       document.getElementById("gameScreen").classList.remove("hidden");
       updateGameUI();
+    }
+
+    // PATCH: resync helper
+    function adminResyncPlayersFromPings() {
+      if (myClientId !== gameState.adminId) return;
+
+      let changed = false;
+
+      if (!gameState.players.find(p => p.id === myClientId)) {
+        gameState.players.push(makePlayer(myClientId, myName || "Admin"));
+        changed = true;
+      }
+
+      knownJoinIds.forEach((id) => {
+        if (!gameState.players.find(p => p.id === id)) {
+          gameState.players.push(makePlayer(id, knownJoinNames[id] || "Player"));
+          changed = true;
+        }
+      });
+
+      if (changed) broadcastState();
     }
 
     function broadcastState() {
@@ -269,14 +304,17 @@
         document.getElementById("turnIndicator").style.color = "#94a3b8";
       }
 
-      // tabs enable/disable
       for (let i = 2; i <= 5; i++) {
         const el = document.getElementById(`tab-${i}`);
         if (i < gameState.minimumRequiredChaal) { el.classList.add("dis"); el.classList.remove("sel"); }
         else el.classList.remove("dis");
       }
       if (currentSelectedBet < gameState.minimumRequiredChaal) currentSelectedBet = gameState.minimumRequiredChaal;
-      for (let i = 2; i <= 5; i++) if (i === currentSelectedBet && i >= gameState.minimumRequiredChaal) document.getElementById(`tab-${i}`).classList.add("sel");
+      for (let i = 2; i <= 5; i++) {
+        if (i === currentSelectedBet && i >= gameState.minimumRequiredChaal) {
+          document.getElementById(`tab-${i}`).classList.add("sel");
+        }
+      }
 
       gameState.players.forEach((p) => {
         const isCurrent = gameState.handActive && active && active.id === p.id;
@@ -306,7 +344,6 @@
         list.appendChild(row);
       });
 
-      // split rows
       if (isAdmin) {
         const s = document.getElementById("splitCheckboxes");
         s.innerHTML = "";
@@ -318,7 +355,6 @@
         if (!s.innerHTML) s.innerHTML = `<span class="small">No active hand running</span>`;
       }
 
-      // action pad
       if (gameState.handActive && active && active.id === myClientId) {
         document.getElementById("blindActionBtn").disabled = (active.blindsCount >= 2 || active.hasSeen === true);
         document.getElementById("chaalActionBtn").disabled = false;
@@ -331,7 +367,7 @@
     function adminAddChips(playerId, amount) {
       if (myClientId !== gameState.adminId) return;
       const p = gameState.players.find(x => x.id === playerId);
-      if (!p) return;
+      if (!p) return alert("Player not found on admin state.");
       p.wallet += amount;
       p.totalInjected += amount;
       broadcastState();
