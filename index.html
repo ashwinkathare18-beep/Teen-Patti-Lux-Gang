@@ -157,62 +157,59 @@
   }
 
   function connectToTable() {
-    myName = document.getElementById('playerNameInput').value.trim();
-    roomCode = document.getElementById('tableCodeInput').value.trim().toUpperCase();
+  myName = document.getElementById('playerNameInput').value.trim();
+  roomCode = document.getElementById('tableCodeInput').value.trim().toUpperCase();
 
-    if (!myName || !roomCode) {
-      alert("Please provide both your Name and a Table Code.");
+  if (!myName || !roomCode) {
+    alert("Please provide both your Name and a Table Code.");
+    return;
+  }
+
+  if (isAdminLoggingIn) {
+    const enteredPass = document.getElementById('adminPassInput').value;
+    if (enteredPass !== ADMIN_SECRET_KEY) {
+      alert("Incorrect Admin Master Passcode. Authorization denied.");
+      return;
+    }
+  }
+
+  if (ABLY_API_KEY === 'YOUR_ABLY_API_KEY_HERE') {
+    alert("Please update ABLY_API_KEY in index.html first.");
+    return;
+  }
+
+  myClientId = 'id_' + Math.random().toString(36).substr(2, 9);
+  ably = new Ably.Realtime({ key: ABLY_API_KEY, clientId: myClientId });
+  channel = ably.channels.get('teen-patti-' + roomCode);
+
+  // 1) Always consume server state only
+  channel.subscribe('stateUpdate', (message) => {
+    gameState = message.data;
+    updateGameUI();
+  });
+
+  // 2) Enter presence
+  channel.presence.enter({ name: myName }, (err) => {
+    if (err) {
+      alert("Presence enter failed: " + (err.message || ""));
       return;
     }
 
-    if (isAdminLoggingIn) {
-      const enteredPass = document.getElementById('adminPassInput').value;
-      if (enteredPass !== ADMIN_SECRET_KEY) {
-        alert("Incorrect Admin Master Passcode. Authorization denied.");
-        return;
-      }
-    }
+    // 3) Request admin to add me (do NOT mutate shared state locally)
+    channel.publish('joinRequest', { id: myClientId, name: myName });
+  });
 
-    if (ABLY_API_KEY === 'YOUR_ABLY_API_KEY_HERE') {
-      alert("Please update ABLY_API_KEY in index.html first.");
-      return;
-    }
+  // 4) Admin handles join requests and is ONLY writer
+  channel.subscribe('joinRequest', (msg) => {
+    if (myClientId !== gameState.adminId) return;
 
-    myClientId = 'id_' + Math.random().toString(36).substr(2, 9);
-    ably = new Ably.Realtime({ key: ABLY_API_KEY, clientId: myClientId });
+    const { id, name } = msg.data || {};
+    if (!id) return;
 
-    ably.connection.once('failed', () => {
-      alert('Ably connection failed. Check API key or internet.');
-    });
-
-    channel = ably.channels.get('teen-patti-' + roomCode);
-
-    channel.subscribe('stateUpdate', (message) => {
-      gameState = message.data;
-  
-      updateGameUI();
-    });
-
-   channel.presence.subscribe('enter', (member) => {
-  if (myClientId !== gameState.adminId) return;
-  syncJoiner(member.clientId, member.data?.name || "Player");
-});
-
-    channel.presence.enter({ name: myName });
-
-   channel.presence.get((err, members) => {
-  if (err) return;
-
-  // Only ADMIN is allowed to build/repair shared player list
-  if (myClientId !== gameState.adminId) return;
-
-  let changed = false;
-
-  members.forEach(m => {
-    if (!gameState.players.find(p => p.id === m.clientId)) {
+    if (!gameState.players.find(p => p.id === id)) {
       gameState.players.push({
-        id: m.clientId,
-        name: m.data?.name || "Player",
+        id,
+        name: name || "Player",
         wallet: 0,
         totalInjected: 0,
         blindsCount: 0,
@@ -221,14 +218,35 @@
         wins: 0,
         losses: 0
       });
-      changed = true;
+      broadcastState();
     }
   });
 
- if (changed) broadcastState();
-});
+  // 5) If admin login and no admin exists yet, claim admin once
+  setTimeout(() => {
+    if (isAdminLoggingIn && !gameState.adminId) {
+      gameState.adminId = myClientId;
+      if (!gameState.players.find(p => p.id === myClientId)) {
+        gameState.players.push({
+          id: myClientId,
+          name: myName,
+          wallet: 0,
+          totalInjected: 0,
+          blindsCount: 0,
+          hasSeen: false,
+          folded: false,
+          wins: 0,
+          losses: 0
+        });
+      }
+      broadcastState();
+    }
+  }, 600);
 
-} // closes connectToTable
+  document.getElementById('setupScreen').classList.add('hidden');
+  document.getElementById('displayTableCode').innerText = roomCode;
+  document.getElementById('gameScreen').classList.remove('hidden');
+}
 
 function syncJoiner(id, name) {
   if (myClientId !== gameState.adminId) return; // only admin can sync
