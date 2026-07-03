@@ -276,7 +276,7 @@ function syncJoiner(id, name) {
 
 function broadcastState() {
   if (!channel) return;
-  if (myClientId !== gameState.adminId) return; // only admin publishes state
+  if (myClientId !== gameState.adminId) return;
   channel.publish('stateUpdate', gameState, (err) => {
     if (err) console.error("publish error:", err);
   });
