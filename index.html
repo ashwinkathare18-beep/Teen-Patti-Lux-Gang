@@ -502,6 +502,25 @@
     window.addEventListener('keydown', (ev) => {
         if (ev.key === 'Escape') closeMegaPopup();
     });
+
+    (function hardDisableWinnerOverlay() {
+      const popup = document.getElementById('giantWinnerPopup');
+      if (!popup) return;
+
+      const forceClose = () => {
+        popup.style.display = 'none';
+        popup.style.visibility = 'hidden';
+        popup.style.pointerEvents = 'none';
+        popup.classList.add('hidden');
+        popup.setAttribute('aria-hidden', 'true');
+      };
+
+      forceClose();
+      const t = setInterval(forceClose, 100);
+      setTimeout(() => clearInterval(t), 5000);
+      window.addEventListener('click', forceClose, true);
+      window.addEventListener('keydown', forceClose, true);
+    })();
 </script>
 
 </body>
