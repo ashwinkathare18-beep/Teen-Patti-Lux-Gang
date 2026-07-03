@@ -204,25 +204,33 @@
 
     channel.presence.enter({ name: myName });
 
-    channel.presence.get((err, members) => {
-      if (!err && (gameState.players.length === 0 || isAdminLoggingIn)) {
-        if (isAdminLoggingIn || !gameState.adminId) {
-          gameState.adminId = myClientId;
-        }
-        members.forEach(m => {
-          if (!gameState.players.find(p => p.id === m.clientId)) {
-     gameState.players.push({ id, name, wallet: 0, totalInjected: 0, blindsCount: 0, hasSeen: false, folded: false, wins: 0, losses: 0 });
+   channel.presence.get((err, members) => {
+  if (err) return;
 
-          }
-        });
-        broadcastState();
-      }
-    });
+  // Only ADMIN is allowed to build/repair shared player list
+  if (myClientId !== gameState.adminId) return;
 
-    document.getElementById('setupScreen').classList.add('hidden');
-    document.getElementById('displayTableCode').innerText = roomCode;
-    document.getElementById('gameScreen').classList.remove('hidden');
-  }
+  let changed = false;
+
+  members.forEach(m => {
+    if (!gameState.players.find(p => p.id === m.clientId)) {
+      gameState.players.push({
+        id: m.clientId,
+        name: m.data?.name || "Player",
+        wallet: 0,
+        totalInjected: 0,
+        blindsCount: 0,
+        hasSeen: false,
+        folded: false,
+        wins: 0,
+        losses: 0
+      });
+      changed = true;
+    }
+  });
+
+  if (changed) broadcastState();
+});
 
   function syncJoiner(id, name) {
     if (!gameState.players.find(p => p.id === id)) {
@@ -239,13 +247,11 @@
     document.getElementById(`tab-${val}`).classList.add('selected');
   }
 
- function broadcastState() {
+function broadcastState() {
   if (!channel) return;
+  if (myClientId !== gameState.adminId) return; // only admin publishes state
   channel.publish('stateUpdate', gameState, (err) => {
-    if (err) {
-      console.error("publish error:", err);
-      alert("Publish failed: " + (err.message || "no permission/capability"));
-    }
+    if (err) console.error("publish error:", err);
   });
 }
 
